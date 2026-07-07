@@ -1,0 +1,44 @@
+appId: com.desktopcodingapp.local-llm-assistant
+productName: Local LLM Coding Assistant
+copyright: Copyright © 2026
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+asarUnpack:
+  - resources/**
+win:
+  executableName: local-llm-coding-assistant
+  # Drop a 256x256 (or larger) build/icon.ico to brand the app; electron-builder
+  # auto-detects it from buildResources. Without it, the default Electron icon
+  # is used so builds still succeed.
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  allowToChangeInstallationDirectory: true
+  oneClick: false
+  perMachine: false
+portable:
+  artifactName: ${name}-${version}-portable.${ext}
+publish:
+  provider: github
+  owner: trendlinepros-afk
+  repo: desktop-coding-app
+  releaseType: release
+electronDownload:
+  mirror: https://github.com/electron/electron/releases/download/

@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Semantic color tokens consumed by tailwind.config.js. Light values are the
+ * default; `.dark` on <html> flips them. The theme class is toggled from the
+ * store based on the persisted `theme` config (system/light/dark).
+ */
+:root {
+  --surface: 255 255 255;
+  --surface-muted: 244 245 247;
+  --surface-raised: 255 255 255;
+  --border: 226 228 232;
+  --content: 24 27 31;
+  --content-muted: 100 106 114;
+  --accent: 79 110 247;
+  --accent-fg: 255 255 255;
+}
+
+.dark {
+  --surface: 17 19 24;
+  --surface-muted: 24 27 33;
+  --surface-raised: 30 34 41;
+  --border: 44 49 58;
+  --content: 232 234 238;
+  --content-muted: 148 156 167;
+  --accent: 106 132 255;
+  --accent-fg: 255 255 255;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  background: rgb(var(--surface));
+  color: rgb(var(--content));
+  overflow: hidden;
+}
+
+/* Thin, theme-aware scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Markdown / code block presentation inside chat bubbles */
+.prose-chat pre {
+  background: rgb(var(--surface-muted));
+  border: 1px solid rgb(var(--border));
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 13px;
+}
+.prose-chat code {
+  font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+}
+.prose-chat :not(pre) > code {
+  background: rgb(var(--surface-muted));
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}

@@ -1,0 +1,4 @@
+provider: github
+owner: trendlinepros-afk
+repo: desktop-coding-app
+updaterCacheDirName: local-llm-coding-assistant-updater
