@@ -23,6 +23,7 @@ import type {
   PreviewStatus,
   Prereq,
   ProviderStatus,
+  RunStatus,
   UpdateStatusEvent
 } from './types'
 
@@ -77,6 +78,13 @@ export const IPC = {
   previewStart: 'preview:start',
   previewStop: 'preview:stop',
   previewStatus: 'preview:status',
+
+  // Run (Play button + diagnostics console)
+  runStart: 'run:start',
+  runStop: 'run:stop',
+  runStatus: 'run:status',
+  runLog: 'run:log', // main -> renderer event
+  runExit: 'run:exit', // main -> renderer event
 
   // Screenshot + Gemini
   screenshotCapture: 'screenshot:capture',
@@ -155,6 +163,13 @@ export interface AppApi {
   startPreview(): Promise<PreviewStatus>
   stopPreview(): Promise<void>
   getPreviewStatus(): Promise<PreviewStatus>
+
+  // Run
+  startRun(): Promise<RunStatus>
+  stopRun(): Promise<void>
+  getRunStatus(): Promise<RunStatus>
+  onRunLog(cb: (line: string) => void): () => void
+  onRunExit(cb: (code: number | null) => void): () => void
 
   // Screenshot + Gemini
   captureScreenshot(): Promise<{ base64: string } | { error: string }>

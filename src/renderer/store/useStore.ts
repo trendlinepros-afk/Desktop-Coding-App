@@ -12,10 +12,11 @@ import type {
   OllamaStatus,
   PreviewStatus,
   ProjectInfo,
+  RunStatus,
   UpdateStatusEvent
 } from '@shared/types'
 
-export type RightPanelMode = 'editor' | 'preview'
+export type RightPanelMode = 'editor' | 'preview' | 'run'
 
 /** A pending paid-request confirmation surfaced as a modal. */
 export interface PendingSend {
@@ -84,6 +85,15 @@ interface AppState {
   previewStatus: PreviewStatus | null
   startPreview: () => Promise<void>
   stopPreview: () => Promise<void>
+
+  // Project runner (Play + diagnostics console)
+  runStatus: RunStatus | null
+  runLogs: string[]
+  startRun: () => Promise<void>
+  stopRun: () => Promise<void>
+  clearRunLogs: () => void
+  handleRunLog: (line: string) => void
+  handleRunExit: (code: number | null) => void
 
   // Gemini analysis
   analyzeCurrentPreview: () => Promise<void>
@@ -348,6 +358,31 @@ export const useStore = create<AppState>((set, get) => ({
   stopPreview: async () => {
     await window.api.stopPreview()
     set({ previewStatus: null })
+  },
+
+  // ---- Project runner ----
+  runStatus: null,
+  runLogs: [],
+  startRun: async () => {
+    // Fresh console for each run; switch the right panel to the Run view.
+    set({ runLogs: [], rightPanelMode: 'run' })
+    const runStatus = await window.api.startRun()
+    set({ runStatus })
+  },
+  stopRun: async () => {
+    await window.api.stopRun()
+    const rs = get().runStatus
+    set({ runStatus: rs ? { ...rs, running: false } : null })
+  },
+  clearRunLogs: () => set({ runLogs: [] }),
+  handleRunLog: (line) => {
+    // Keep the console bounded so a chatty process can't grow memory forever.
+    const logs = [...get().runLogs, line]
+    set({ runLogs: logs.length > 2000 ? logs.slice(-2000) : logs })
+  },
+  handleRunExit: (code) => {
+    const rs = get().runStatus
+    set({ runStatus: rs ? { ...rs, running: false, exitCode: code } : null })
   },
 
   // ---- Gemini analysis ----

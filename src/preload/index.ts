@@ -71,6 +71,13 @@ const api: AppApi = {
   stopPreview: () => ipcRenderer.invoke(IPC.previewStop),
   getPreviewStatus: () => ipcRenderer.invoke(IPC.previewStatus),
 
+  // Run
+  startRun: () => ipcRenderer.invoke(IPC.runStart),
+  stopRun: () => ipcRenderer.invoke(IPC.runStop),
+  getRunStatus: () => ipcRenderer.invoke(IPC.runStatus),
+  onRunLog: (cb) => subscribe<string>(IPC.runLog, cb),
+  onRunExit: (cb) => subscribe<number | null>(IPC.runExit, cb),
+
   // Screenshot + Gemini
   captureScreenshot: () => ipcRenderer.invoke(IPC.screenshotCapture),
   analyzeScreenshot: (base64) => ipcRenderer.invoke(IPC.geminiAnalyze, base64),

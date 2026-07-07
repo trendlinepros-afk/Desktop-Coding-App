@@ -4,6 +4,7 @@ import { registerIpc } from './ipc'
 import { configStore } from './services/config-persistence'
 import { fileManager } from './services/file-manager'
 import { previewManager } from './services/preview-manager'
+import { runnerService } from './services/runner'
 import { ollamaService } from './services/ollama'
 import { updaterService } from './services/updater'
 import { logger } from './services/logger'
@@ -86,7 +87,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  // Clean up preview server / watchers so no orphan processes remain.
+  // Clean up preview server / run process / watchers so no orphans remain.
   previewManager.stop().catch(() => {})
+  runnerService.stop()
   fileManager.dispose()
 })

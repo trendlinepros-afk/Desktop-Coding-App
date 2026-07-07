@@ -145,6 +145,14 @@ export interface PreviewStatus {
   error?: string
 }
 
+/** State of the project runner (Play button + diagnostics console). */
+export interface RunStatus {
+  running: boolean
+  /** The command being run, e.g. "python main.py". */
+  command: string | null
+  exitCode: number | null
+}
+
 export interface UpdateStatusEvent {
   state:
     | 'checking'

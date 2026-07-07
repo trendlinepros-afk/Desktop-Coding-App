@@ -16,6 +16,7 @@ import { chatOrchestrator } from './services/chat'
 import { conversationStore } from './services/conversation-store'
 import { fileManager } from './services/file-manager'
 import { previewManager } from './services/preview-manager'
+import { runnerService } from './services/runner'
 import { screenshotService } from './services/screenshot-service'
 import { geminiAnalyzer } from './services/gemini-analyzer'
 import { updaterService } from './services/updater'
@@ -128,6 +129,15 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IPC.previewStart, () => previewManager.start())
   ipcMain.handle(IPC.previewStop, () => previewManager.stop())
   ipcMain.handle(IPC.previewStatus, () => previewManager.getStatus())
+
+  // ---- Run ----
+  runnerService.setListeners(
+    (line) => getWindow()?.webContents.send(IPC.runLog, line),
+    (code) => getWindow()?.webContents.send(IPC.runExit, code)
+  )
+  ipcMain.handle(IPC.runStart, () => runnerService.start())
+  ipcMain.handle(IPC.runStop, () => runnerService.stop())
+  ipcMain.handle(IPC.runStatus, () => runnerService.getStatus())
 
   // ---- Screenshot + Gemini ----
   ipcMain.handle(IPC.screenshotCapture, () => screenshotService.capture())

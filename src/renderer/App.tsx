@@ -57,6 +57,8 @@ export default function App(): JSX.Element {
     // appears even when the Settings modal is closed (the app auto-checks a
     // few seconds after launch).
     const offUpdate = window.api.onUpdateStatus((e) => setUpdateStatus(e))
+    const offRunLog = window.api.onRunLog((line) => useStore.getState().handleRunLog(line))
+    const offRunExit = window.api.onRunExit((code) => useStore.getState().handleRunExit(code))
     const mql = window.matchMedia('(prefers-color-scheme: dark)')
     const onScheme = (): void => applyTheme()
     mql.addEventListener('change', onScheme)
@@ -71,6 +73,8 @@ export default function App(): JSX.Element {
       offChat()
       offFile()
       offUpdate()
+      offRunLog()
+      offRunExit()
       mql.removeEventListener('change', onScheme)
       clearInterval(interval)
     }
