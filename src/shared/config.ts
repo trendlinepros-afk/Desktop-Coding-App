@@ -116,6 +116,61 @@ export const MODEL_VRAM: Record<string, number> = {
   'qwen2.5-coder:14b': 9.5
 }
 
+/**
+ * Short "what is it good at" descriptions matched by model-name pattern (first
+ * match wins). Used to annotate the model switcher so users know what each
+ * downloaded model is for.
+ */
+const MODEL_DESCRIPTIONS: { pattern: RegExp; text: string }[] = [
+  { pattern: /qwen[\d.]*-?coder/i, text: 'Top open coding model — code generation, completion, refactoring.' },
+  { pattern: /qwen.*vl/i, text: 'Vision-language: can read images/screenshots plus general chat & code.' },
+  { pattern: /qwen/i, text: 'Strong all-rounder — general chat, reasoning, and coding.' },
+  { pattern: /deepseek-coder/i, text: 'Excellent at coding with long code context.' },
+  { pattern: /deepseek.*(v2|v3|v4|r1|reason)/i, text: 'Strong reasoning and coding.' },
+  { pattern: /deepseek/i, text: 'Strong general reasoning and coding.' },
+  { pattern: /codellama|code-llama/i, text: 'Meta code-specialized model.' },
+  { pattern: /llama.*vision/i, text: 'General model that can also read images/screenshots.' },
+  { pattern: /llama/i, text: 'Meta general-purpose model — balanced chat and code.' },
+  { pattern: /mixtral/i, text: 'Mixture-of-experts — capable general-purpose, heavier.' },
+  { pattern: /mistral/i, text: 'Fast, efficient general-purpose — good on modest GPUs.' },
+  { pattern: /phi/i, text: 'Small and efficient with strong reasoning for its size.' },
+  { pattern: /gemma/i, text: 'Google general-purpose model.' },
+  { pattern: /starcoder/i, text: 'Code-focused model.' },
+  { pattern: /gpt-oss|granite|command-?r/i, text: 'General-purpose model.' }
+]
+
+/** A one-line description of what a model is good at, by name. */
+export function describeModel(name: string): string {
+  const hit = MODEL_DESCRIPTIONS.find((d) => d.pattern.test(name))
+  return hit ? hit.text : 'General-purpose local model.'
+}
+
+/** A model in the curated download catalog. */
+export interface CatalogModel {
+  /** `ollama pull` name. */
+  name: string
+  /** Approximate VRAM/download size (GB). */
+  vramGb: number
+  description: string
+}
+
+/**
+ * Curated selection of coding-capable models in the 4–12 GB VRAM range, shown
+ * in Settings → Ollama so users can pick and download one that fits their GPU.
+ */
+export const MODEL_CATALOG: CatalogModel[] = [
+  { name: 'mistral:7b', vramGb: 4.1, description: 'Fast, efficient general-purpose. Great starter model on modest GPUs.' },
+  { name: 'qwen2.5-coder:7b', vramGb: 4.7, description: 'Best-in-class small coding model — generation, completion, refactoring.' },
+  { name: 'qwen2.5:7b', vramGb: 4.7, description: 'Strong general-purpose + reasoning at 7B.' },
+  { name: 'llama3.1:8b', vramGb: 4.9, description: 'Meta Llama 3.1 — well-rounded chat and coding.' },
+  { name: 'gemma2:9b', vramGb: 5.4, description: 'Google Gemma 2 — strong general-purpose.' },
+  { name: 'codellama:13b', vramGb: 7.4, description: 'Code Llama 13B — code-specialized, more capable than 7B.' },
+  { name: 'llama3.2-vision:11b', vramGb: 7.9, description: 'Reads images/screenshots plus general chat — good for UI work.' },
+  { name: 'deepseek-coder-v2:16b', vramGb: 8.9, description: 'Top-tier coding with large context (MoE). Needs ~9 GB.' },
+  { name: 'qwen2.5-coder:14b', vramGb: 9.0, description: 'Larger Qwen Coder — stronger coding, needs ~9 GB.' },
+  { name: 'phi4:14b', vramGb: 9.1, description: 'Microsoft Phi-4 — excellent reasoning for its size.' }
+]
+
 /** Available cloud models offered per provider in the settings dropdowns. */
 export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1', 'o1-mini'],

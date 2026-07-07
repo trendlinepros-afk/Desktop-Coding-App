@@ -3,6 +3,7 @@ import { ollamaService, vramForModel } from './ollama'
 import {
   PROVIDER_LABELS,
   PROVIDER_MODELS,
+  describeModel,
   type ProviderId
 } from '../../shared/config'
 import type { ModelDescriptor } from '../../shared/types'
@@ -19,22 +20,25 @@ export async function listModels(): Promise<ModelDescriptor[]> {
   // Local Ollama models (only downloaded ones are listed).
   const status = await ollamaService.status()
   for (const m of status.models) {
-    const vram = vramForModel(m.name, cfg)
+    // Ollama-hosted "cloud" models (name ends in :cloud) don't use local VRAM.
+    const isCloud = m.name.endsWith(':cloud')
+    const vram = isCloud ? null : vramForModel(m.name, cfg, m.sizeBytes)
     const exceedsVram = vram != null && vram > cfg.gpuVramGb
     out.push({
       id: `ollama:${m.name}`,
       name: m.name,
       provider: 'ollama',
-      providerLabel: 'Local (Ollama)',
-      isLocal: true,
+      providerLabel: isCloud ? 'Cloud (Ollama)' : 'Local (Ollama)',
+      isLocal: !isCloud,
       vramGb: vram,
       available: status.connected && !exceedsVram,
       unavailableReason: !status.connected
         ? 'Ollama is not running.'
         : exceedsVram
-          ? `Requires ~${vram} GB > ${cfg.gpuVramGb} GB available.`
+          ? `Needs ~${vram} GB > your ${cfg.gpuVramGb} GB. Will be slow (CPU offload).`
           : undefined,
-      speedHint: vram != null ? estimateSpeed(vram, cfg.gpuVramGb) : undefined
+      speedHint: vram != null ? estimateSpeed(vram, cfg.gpuVramGb) : undefined,
+      description: describeModel(m.name)
     })
   }
 

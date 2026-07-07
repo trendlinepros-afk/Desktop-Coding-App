@@ -246,12 +246,25 @@ export class OllamaService {
   }
 }
 
-/** VRAM (GB) for an Ollama model name, consulting custom entries first. */
-export function vramForModel(name: string, cfg: AppConfig): number | null {
+/**
+ * Estimate VRAM (GB) for an Ollama model. Priority:
+ *  1. An explicit user override in customModels.
+ *  2. The model's actual on-disk size from Ollama (bytes) — the weight size
+ *     closely tracks real VRAM use and is accurate for ANY model, so this is
+ *     preferred over guesses whenever Ollama reports a size.
+ *  3. A hardcoded fallback table (only if size is unavailable).
+ */
+export function vramForModel(
+  name: string,
+  cfg: AppConfig,
+  sizeBytes?: number
+): number | null {
   const custom = cfg.customModels.find((m) => m.name === name)
   if (custom) return custom.vramGb
+  if (sizeBytes && sizeBytes > 0) {
+    return Math.round((sizeBytes / 1024 ** 3) * 10) / 10
+  }
   if (MODEL_VRAM[name] != null) return MODEL_VRAM[name]
-  // Try matching a base name (strip trailing :latest etc.)
   const base = name.replace(/:latest$/, '')
   if (MODEL_VRAM[base] != null) return MODEL_VRAM[base]
   return null

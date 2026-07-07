@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
 import {
+  MODEL_CATALOG,
   PROVIDER_LABELS,
   PROVIDER_MODELS,
   type ProviderId,
@@ -84,7 +85,22 @@ export function SettingsModal(): JSX.Element | null {
   const [keyDrafts, setKeyDrafts] = useState<Partial<Record<ProviderId, string>>>({})
   const [savedFlash, setSavedFlash] = useState<Partial<Record<ProviderId, boolean>>>({})
   const [prereqs, setPrereqs] = useState<Prereq[] | null>(null)
+  // Per-model download progress for the catalog (keyed by model name).
+  const [pullProgress, setPullProgress] = useState<
+    Record<string, { status: string; percent: number }>
+  >({})
   const overlayRef = useRef<HTMLDivElement>(null)
+
+  // Subscribe to Ollama pull progress while the modal is open.
+  useEffect(() => {
+    if (!settingsOpen) return
+    return window.api.onOllamaPullProgress((p) => {
+      setPullProgress((prev) => ({
+        ...prev,
+        [p.name]: { status: p.status, percent: p.percent }
+      }))
+    })
+  }, [settingsOpen])
 
   // Seed key drafts from config whenever the modal opens.
   useEffect(() => {
@@ -164,6 +180,25 @@ export function SettingsModal(): JSX.Element | null {
       }))
     } finally {
       setTesting((t) => ({ ...t, [p]: false }))
+    }
+  }
+
+  const installedNames = new Set((ollamaStatus?.models ?? []).map((m) => m.name))
+
+  const pullModel = async (name: string): Promise<void> => {
+    setPullProgress((prev) => ({ ...prev, [name]: { status: 'starting', percent: 0 } }))
+    const res = await window.api.pullOllamaModel(name)
+    setPullProgress((prev) => {
+      const next = { ...prev }
+      delete next[name]
+      return next
+    })
+    if (res.ok) {
+      await refreshOllama()
+      await refreshModels()
+      setBanner({ kind: 'info', text: `Downloaded ${name}.` })
+    } else if (res.error && res.error !== 'cancelled') {
+      setBanner({ kind: 'error', text: `Download failed: ${res.error}` })
     }
   }
 
@@ -546,6 +581,86 @@ export function SettingsModal(): JSX.Element | null {
                   . After installing a model, use the "Load Model" button next to the
                   model switcher to load it into memory.
                 </p>
+
+                <div className="border-t border-border pt-3">
+                  <div className="text-sm font-semibold text-content">
+                    Recommended models (4–12 GB)
+                  </div>
+                  <p className="mt-0.5 text-xs text-content-muted">
+                    Coding-capable models that fit common GPUs. Download one that
+                    fits your VRAM ({config.gpuVramGb} GB set). Sizes are
+                    approximate.
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {MODEL_CATALOG.map((cm) => {
+                      const installed = installedNames.has(cm.name)
+                      const prog = pullProgress[cm.name]
+                      const fits = cm.vramGb <= config.gpuVramGb
+                      return (
+                        <div
+                          key={cm.name}
+                          className="rounded border border-border bg-surface p-2.5"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 text-sm font-medium text-content">
+                                {cm.name}
+                                <span
+                                  className={`rounded px-1.5 py-0.5 text-xs font-normal ${
+                                    fits
+                                      ? 'bg-surface-muted text-content-muted'
+                                      : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                                  }`}
+                                  title={
+                                    fits
+                                      ? 'Fits your VRAM'
+                                      : `Exceeds your ${config.gpuVramGb} GB — will be slow`
+                                  }
+                                >
+                                  ~{cm.vramGb} GB
+                                </span>
+                              </div>
+                              <p className="mt-0.5 text-xs text-content-muted">
+                                {cm.description}
+                              </p>
+                            </div>
+                            <div className="shrink-0">
+                              {installed ? (
+                                <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                                  ✓ Installed
+                                </span>
+                              ) : prog ? (
+                                <button
+                                  type="button"
+                                  className="rounded border border-border px-2.5 py-1 text-xs hover:bg-surface-muted"
+                                  onClick={() => void window.api.cancelOllamaPull(cm.name)}
+                                >
+                                  {prog.percent > 0 ? `${prog.percent}%` : prog.status}·Cancel
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="rounded bg-accent px-2.5 py-1 text-xs text-accent-fg hover:opacity-90"
+                                  onClick={() => void pullModel(cm.name)}
+                                >
+                                  Download
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {prog && (
+                            <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-surface-muted">
+                              <div
+                                className="h-full bg-accent transition-all"
+                                style={{ width: `${prog.percent}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
               </>
             )}
 

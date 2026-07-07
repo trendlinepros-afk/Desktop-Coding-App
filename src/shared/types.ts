@@ -73,6 +73,8 @@ export interface ModelDescriptor {
   unavailableReason?: string
   /** Human hint like "~40 tok/s" for local models. */
   speedHint?: string
+  /** One-line "what it's good at" description. */
+  description?: string
 }
 
 export interface OllamaModelInfo {

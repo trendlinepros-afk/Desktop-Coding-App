@@ -14,6 +14,13 @@ function ollamaNameFromId(id: string): string | null {
   return id.slice('ollama:'.length)
 }
 
+/** Inline VRAM label for a model (local only). */
+function vramLabel(model: ModelDescriptor): string {
+  if (!model.isLocal) return ''
+  if (model.vramGb != null) return `${model.vramGb} GB`
+  return '— GB'
+}
+
 /** Build the hover tooltip text for a model row. */
 function tooltipFor(model: ModelDescriptor, gpuVramGb: number): string {
   const lines: string[] = [model.name, `Provider: ${model.providerLabel}`]
@@ -104,7 +111,10 @@ export function ModelSwitcher(): JSX.Element {
             {selected ? selected.name : 'Select a model'}
           </span>
           {selected && (
-            <span className="text-xs text-content-muted">{selected.providerLabel}</span>
+            <span className="text-xs text-content-muted">
+              {selected.providerLabel}
+              {vramLabel(selected) ? ` · ${vramLabel(selected)}` : ''}
+            </span>
           )}
         </span>
         <span className="text-content-muted">▾</span>
@@ -140,22 +150,42 @@ export function ModelSwitcher(): JSX.Element {
                 title={tooltipFor(model, gpuVramGb)}
                 disabled={!model.available}
                 onClick={() => handleSelect(model)}
-                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${
+                className={`flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-sm ${
                   model.available
                     ? 'cursor-pointer text-content hover:bg-surface-muted'
-                    : 'cursor-not-allowed text-content-muted opacity-50'
+                    : 'cursor-not-allowed text-content-muted opacity-60'
                 } ${isSelected ? 'bg-accent/15' : ''}`}
               >
-                <span className="flex flex-col leading-tight">
-                  <span className="font-medium">{model.name}</span>
+                <span className="flex min-w-0 flex-col leading-tight">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    {model.name}
+                    {isSelected && <span className="text-accent">●</span>}
+                  </span>
                   <span className="text-xs text-content-muted">{model.providerLabel}</span>
+                  {model.description && (
+                    <span className="mt-0.5 text-xs text-content-muted">
+                      {model.description}
+                    </span>
+                  )}
                   {!model.available && model.unavailableReason && (
-                    <span className="text-xs text-content-muted">
+                    <span className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
                       {model.unavailableReason}
                     </span>
                   )}
                 </span>
-                {isSelected && <span className="text-accent">●</span>}
+                {/* Inline VRAM badge — always visible, no hover needed. */}
+                {vramLabel(model) && (
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
+                      model.available
+                        ? 'bg-surface-muted text-content-muted'
+                        : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                    }`}
+                    title="Estimated VRAM (from the model's size)"
+                  >
+                    {vramLabel(model)}
+                  </span>
+                )}
               </button>
             )
           })}
