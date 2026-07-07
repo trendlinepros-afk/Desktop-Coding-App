@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { spawn } from 'child_process'
+import { spawn, spawnSync } from 'child_process'
 import { configStore } from './config-persistence'
 import { logger } from './logger'
 import { MODEL_VRAM, type AppConfig } from '../../shared/config'
@@ -56,18 +56,46 @@ export class OllamaService {
     }
   }
 
+  /** Whether the `ollama` binary is resolvable on PATH. */
+  isInstalled(): boolean {
+    try {
+      const finder = process.platform === 'win32' ? 'where' : 'which'
+      const res = spawnSync(finder, ['ollama'], { windowsHide: true })
+      return res.status === 0
+    } catch {
+      return false
+    }
+  }
+
   /**
    * Attempt to start the local `ollama serve` process if it is not reachable.
    * On Windows the `ollama` binary is expected on PATH (installed separately).
+   * If Ollama is not installed this returns a friendly status instead of
+   * throwing — the ENOENT from spawn arrives asynchronously as an 'error'
+   * event, so it must be handled on the child (not just via try/catch) or it
+   * becomes an uncaught exception that crashes the main process.
    */
   async start(): Promise<OllamaStatus> {
     const current = await this.status()
     if (current.connected) return current
+    if (!this.isInstalled()) {
+      return {
+        connected: false,
+        endpoint: this.endpoint,
+        error: 'Ollama is not installed. Install it to use local models.',
+        models: []
+      }
+    }
     try {
       const child = spawn('ollama', ['serve'], {
         detached: true,
         stdio: 'ignore',
         windowsHide: true
+      })
+      // Must handle the async 'error' event (e.g. ENOENT) or Node turns it into
+      // an uncaught exception.
+      child.on('error', (err) => {
+        logger.error('ollama serve process error', errMessage(err))
       })
       child.unref()
       logger.info('Spawned `ollama serve`')

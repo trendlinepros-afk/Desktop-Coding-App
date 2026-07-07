@@ -9,6 +9,7 @@ import { SettingsModal } from './components/SettingsModal'
 import { CostConfirmModal } from './components/CostConfirmModal'
 import { Banner } from './components/Banner'
 import { UpdateBanner } from './components/UpdateBanner'
+import { PrereqNotice } from './components/PrereqNotice'
 
 /**
  * Root layout: menu bar on top, a collapsible conversation sidebar on the left,
@@ -127,6 +128,7 @@ export default function App(): JSX.Element {
       </div>
       {settingsOpen && <SettingsModal />}
       {pendingSend && <CostConfirmModal />}
+      <PrereqNotice />
     </div>
   )
 }

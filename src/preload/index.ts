@@ -83,7 +83,9 @@ const api: AppApi = {
   // Dialogs / misc
   pickFolder: () => ipcRenderer.invoke(IPC.dialogPickFolder),
   exportLogs: () => ipcRenderer.invoke(IPC.logsExport),
-  getAppVersion: () => ipcRenderer.invoke(IPC.appVersion)
+  getAppVersion: () => ipcRenderer.invoke(IPC.appVersion),
+  openExternal: (url) => ipcRenderer.invoke(IPC.openExternal, url),
+  checkPrereqs: () => ipcRenderer.invoke(IPC.prereqsCheck)
 }
 
 if (process.contextIsolated) {

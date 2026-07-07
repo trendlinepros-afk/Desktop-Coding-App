@@ -10,6 +10,17 @@ import { logger } from './services/logger'
 
 let mainWindow: BrowserWindow | null = null
 
+// Safety net: log stray errors instead of letting Electron pop the default
+// "A JavaScript error occurred in the main process" dialog and risk a crash.
+// Individual services still handle their own expected failures; this only
+// catches anything that slips through (e.g. an async spawn error).
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception in main process', err?.stack ?? String(err))
+})
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection in main process', String(reason))
+})
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1440,

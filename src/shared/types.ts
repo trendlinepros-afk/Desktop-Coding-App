@@ -159,3 +159,12 @@ export interface ParsedFileBlock {
   content: string
   action: 'create' | 'update' | 'delete'
 }
+
+/** An external prerequisite (Ollama, Node.js) and whether it is installed. */
+export interface Prereq {
+  id: 'ollama' | 'node'
+  name: string
+  installed: boolean
+  impact: string
+  downloadUrl: string
+}

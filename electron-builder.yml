@@ -33,6 +33,8 @@ nsis:
   allowToChangeInstallationDirectory: true
   oneClick: false
   perMachine: false
+  # Custom install step: detect Ollama and offer to install it if missing.
+  include: build/installer.nsh
 portable:
   artifactName: ${name}-${version}-portable.${ext}
 publish:

@@ -19,6 +19,7 @@ import { previewManager } from './services/preview-manager'
 import { screenshotService } from './services/screenshot-service'
 import { geminiAnalyzer } from './services/gemini-analyzer'
 import { updaterService } from './services/updater'
+import { checkPrereqs } from './services/prereqs'
 import { logger } from './services/logger'
 import type { ProviderId } from '../shared/config'
 
@@ -159,6 +160,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     }
   })
   ipcMain.handle(IPC.appVersion, () => app.getVersion())
+  ipcMain.handle(IPC.openExternal, (_e, url: string) => {
+    // Only allow http(s) links to be opened externally.
+    if (/^https?:\/\//i.test(url)) return shell.openExternal(url)
+    return undefined
+  })
+  ipcMain.handle(IPC.prereqsCheck, () => checkPrereqs())
 
   // Forward file-watcher changes to the renderer.
   fileManager.setChangeListener((path) => {

@@ -21,6 +21,7 @@ import type {
   OllamaStatus,
   ProjectInfo,
   PreviewStatus,
+  Prereq,
   ProviderStatus,
   UpdateStatusEvent
 } from './types'
@@ -88,7 +89,9 @@ export const IPC = {
   // Dialogs / misc
   dialogPickFolder: 'dialog:pick-folder',
   logsExport: 'logs:export',
-  appVersion: 'app:version'
+  appVersion: 'app:version',
+  openExternal: 'app:open-external',
+  prereqsCheck: 'prereqs:check'
 } as const
 
 /** The API object exposed on `window.api` by the preload bridge. */
@@ -164,4 +167,6 @@ export interface AppApi {
   pickFolder(): Promise<string | null>
   exportLogs(): Promise<string | null>
   getAppVersion(): Promise<string>
+  openExternal(url: string): Promise<void>
+  checkPrereqs(): Promise<Prereq[]>
 }

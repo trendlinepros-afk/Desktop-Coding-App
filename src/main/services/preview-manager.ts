@@ -101,6 +101,17 @@ export class PreviewManager {
       })
       this.nodeProc.stdout?.on('data', (d) => logger.info('[preview]', d.toString()))
       this.nodeProc.stderr?.on('data', (d) => logger.warn('[preview]', d.toString()))
+      // Handle the async spawn 'error' (e.g. npm not installed) so it can't
+      // become an uncaught exception.
+      this.nodeProc.on('error', (err) => {
+        logger.error('Preview node process error', err.message)
+        this.status = {
+          running: false,
+          url: null,
+          kind: 'node',
+          error: `Could not run "npm start": ${err.message}. Is Node.js installed?`
+        }
+      })
       this.nodeProc.on('exit', (code) =>
         logger.info('Preview node process exited', code)
       )
