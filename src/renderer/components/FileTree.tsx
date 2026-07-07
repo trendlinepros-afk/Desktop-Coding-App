@@ -17,6 +17,10 @@ export function FileTree(): JSX.Element {
   const setBanner = useStore((s) => s.setBanner)
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // Inline prompt (Electron has no window.prompt). mode drives the action.
+  const [prompt, setPrompt] = useState<{ mode: 'new' | 'rename'; value: string } | null>(
+    null
+  )
 
   const toggle = (path: string): void => {
     setExpanded((prev) => {
@@ -27,28 +31,23 @@ export function FileTree(): JSX.Element {
     })
   }
 
-  const handleNewFile = async (): Promise<void> => {
-    const rel = window.prompt('New file path (relative to project root):')
-    if (!rel || !rel.trim()) return
+  const submitPrompt = async (): Promise<void> => {
+    if (!prompt) return
+    const value = prompt.value.trim()
+    if (!value) return
     try {
-      await window.api.writeFile(rel.trim(), '')
-      await refreshFileTree()
-      await openFile(rel.trim())
+      if (prompt.mode === 'new') {
+        await window.api.writeFile(value, '')
+        await refreshFileTree()
+        await openFile(value)
+      } else if (prompt.mode === 'rename' && openFilePath && value !== openFilePath) {
+        await window.api.renameFile(openFilePath, value)
+        await refreshFileTree()
+        await openFile(value)
+      }
+      setPrompt(null)
     } catch (err) {
-      setBanner({ kind: 'error', text: `Cannot create ${rel}: ${(err as Error).message}` })
-    }
-  }
-
-  const handleRename = async (): Promise<void> => {
-    if (!openFilePath) return
-    const next = window.prompt('New path for this file:', openFilePath)
-    if (!next || !next.trim() || next.trim() === openFilePath) return
-    try {
-      await window.api.renameFile(openFilePath, next.trim())
-      await refreshFileTree()
-      await openFile(next.trim())
-    } catch (err) {
-      setBanner({ kind: 'error', text: `Cannot rename: ${(err as Error).message}` })
+      setBanner({ kind: 'error', text: `Operation failed: ${(err as Error).message}` })
     }
   }
 
@@ -68,16 +67,60 @@ export function FileTree(): JSX.Element {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap gap-1 border-b border-border p-2">
-        <button className={btnClass} onClick={() => void handleNewFile()}>
+        <button
+          className={btnClass}
+          onClick={() => setPrompt({ mode: 'new', value: '' })}
+        >
           New File
         </button>
-        <button className={btnClass} disabled={!openFilePath} onClick={() => void handleRename()}>
+        <button
+          className={btnClass}
+          disabled={!openFilePath}
+          onClick={() => setPrompt({ mode: 'rename', value: openFilePath ?? '' })}
+        >
           Rename
         </button>
         <button className={btnClass} disabled={!openFilePath} onClick={() => void handleDelete()}>
           Delete
         </button>
       </div>
+
+      {prompt && (
+        <div className="border-b border-border bg-surface-muted p-2">
+          <label className="text-xs text-content-muted">
+            {prompt.mode === 'new'
+              ? 'New file path (relative to project root)'
+              : 'New path for this file'}
+          </label>
+          <input
+            autoFocus
+            type="text"
+            value={prompt.value}
+            onChange={(e) => setPrompt({ ...prompt, value: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void submitPrompt()
+              if (e.key === 'Escape') setPrompt(null)
+            }}
+            placeholder="src/components/Button.tsx"
+            className="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-content outline-none focus:border-accent"
+          />
+          <div className="mt-1.5 flex justify-end gap-1">
+            <button
+              className="rounded border border-border px-2 py-0.5 text-xs hover:bg-surface"
+              onClick={() => setPrompt(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded bg-accent px-2 py-0.5 text-xs text-accent-fg hover:opacity-90 disabled:opacity-40"
+              disabled={!prompt.value.trim()}
+              onClick={() => void submitPrompt()}
+            >
+              {prompt.mode === 'new' ? 'Create' : 'Rename'}
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex-1 overflow-auto py-1">
         {fileTree.length === 0 ? (
           <p className="px-3 py-4 text-xs text-content-muted">No files yet.</p>

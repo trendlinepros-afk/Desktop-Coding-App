@@ -85,6 +85,10 @@ interface AppState {
   settingsOpen: boolean
   setSettingsOpen: (open: boolean) => void
 
+  // New-project dialog
+  newProjectOpen: boolean
+  setNewProjectOpen: (open: boolean) => void
+
   // Banner
   banner: { kind: 'error' | 'info'; text: string } | null
   setBanner: (b: AppState['banner']) => void
@@ -374,6 +378,10 @@ export const useStore = create<AppState>((set, get) => ({
   // ---- Settings ----
   settingsOpen: false,
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+
+  // ---- New-project dialog ----
+  newProjectOpen: false,
+  setNewProjectOpen: (newProjectOpen) => set({ newProjectOpen }),
 
   // ---- Banner ----
   banner: null,

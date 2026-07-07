@@ -25,9 +25,9 @@ export function MenuBar({ sidebarOpen, onToggleSidebar }: MenuBarProps): JSX.Ele
   const config = useStore((s) => s.config)
   const updateConfig = useStore((s) => s.updateConfig)
   const newConversation = useStore((s) => s.newConversation)
-  const createProject = useStore((s) => s.createProject)
+  const project = useStore((s) => s.project)
+  const setNewProjectOpen = useStore((s) => s.setNewProjectOpen)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
-  const setBanner = useStore((s) => s.setBanner)
 
   const [openMenu, setOpenMenu] = useState<MenuName | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
@@ -43,14 +43,7 @@ export function MenuBar({ sidebarOpen, onToggleSidebar }: MenuBarProps): JSX.Ele
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [openMenu])
 
-  const handleNewProject = (): void => {
-    const name = window.prompt('New project name:')
-    if (name && name.trim()) {
-      void createProject(name.trim()).catch((err: unknown) =>
-        setBanner({ kind: 'error', text: `Could not create project: ${(err as Error).message}` })
-      )
-    }
-  }
+  const handleNewProject = (): void => setNewProjectOpen(true)
 
   const handleAbout = async (): Promise<void> => {
     try {
@@ -63,7 +56,8 @@ export function MenuBar({ sidebarOpen, onToggleSidebar }: MenuBarProps): JSX.Ele
 
   const menus: Record<MenuName, MenuItem[]> = {
     file: [
-      { label: 'New Conversation', onClick: () => newConversation() },
+      // New Conversation requires an active project (same rule as the sidebar).
+      { label: 'New Conversation', onClick: () => newConversation(), disabled: !project },
       { label: 'New Project…', onClick: handleNewProject }
     ],
     edit: [

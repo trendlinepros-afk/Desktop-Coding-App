@@ -7,6 +7,7 @@ import { RightPanel } from './components/RightPanel'
 import { ConversationSidebar } from './components/ConversationSidebar'
 import { SettingsModal } from './components/SettingsModal'
 import { CostConfirmModal } from './components/CostConfirmModal'
+import { NewProjectModal } from './components/NewProjectModal'
 import { Banner } from './components/Banner'
 import { UpdateBanner } from './components/UpdateBanner'
 import { PrereqNotice } from './components/PrereqNotice'
@@ -128,6 +129,7 @@ export default function App(): JSX.Element {
       </div>
       {settingsOpen && <SettingsModal />}
       {pendingSend && <CostConfirmModal />}
+      <NewProjectModal />
       <PrereqNotice />
     </div>
   )

@@ -13,8 +13,8 @@ export function ChatPanel(): JSX.Element {
   // Chatting requires an active project so generated files have a destination
   // and the AI knows which folder it's working in.
   const project = useStore((s) => s.project)
-  const createProject = useStore((s) => s.createProject)
   const openProject = useStore((s) => s.openProject)
+  const setNewProjectOpen = useStore((s) => s.setNewProjectOpen)
 
   const [text, setText] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -37,10 +37,7 @@ export function ChatPanel(): JSX.Element {
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }
 
-  const newProject = async (): Promise<void> => {
-    const name = window.prompt('Project name:')?.trim()
-    if (name) await createProject(name)
-  }
+  const newProject = (): void => setNewProjectOpen(true)
 
   const openFolder = async (): Promise<void> => {
     const dir = await window.api.pickFolder()
