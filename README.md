@@ -149,18 +149,31 @@ snapshot.
 
 ---
 
-## Releasing
+## Releasing & auto-updates
 
-Push a tag to trigger the Windows build + GitHub Release publish:
+The in-app **Check for Updates** uses `electron-updater`, which downloads from
+**GitHub Releases** (not from the `main` branch). It only offers an update when
+the released **version is higher** than the installed one.
+
+**To ship an update the app will grab, bump the version and push to `main`:**
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+npm version patch    # 0.1.0 -> 0.1.1 (bumps package.json + commits)
+git push origin main
 ```
 
-The [`build.yml`](.github/workflows/build.yml) workflow type-checks, builds on
-Windows, and (on tags) publishes the installer, portable exe, and `latest.yml`
-so the in-app updater can find it.
+The [`build.yml`](.github/workflows/build.yml) workflow then builds on Windows
+and **auto-publishes a GitHub Release** for the new version (installer, portable
+exe, and the `latest.yml` update metadata). The next time the app checks for
+updates it downloads it in the background and prompts to restart.
+
+Notes:
+- A push to `main` **without** a version bump just builds — it does **not**
+  create a duplicate release (the version gate skips it), because
+  `electron-updater` would ignore a same-version release anyway.
+- Pushing a `v*` tag also always publishes, if you prefer explicit tags.
+- All user settings and API keys persist across updates (config lives in
+  `%APPDATA%`, outside the app bundle).
 
 ---
 
