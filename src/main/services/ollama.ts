@@ -13,7 +13,7 @@ interface OllamaTagsResponse {
   models: { name: string; size: number }[]
 }
 interface OllamaPsResponse {
-  models: { name: string; size_vram?: number }[]
+  models: { name?: string; model?: string; size_vram?: number; size?: number }[]
 }
 
 /**
@@ -36,18 +36,28 @@ export class OllamaService {
           timeout: 3000
         }),
         axios
-          .get<OllamaPsResponse>(`${endpoint}/api/ps`, { timeout: 3000 })
-          .catch(() => ({ data: { models: [] } as OllamaPsResponse }))
+          .get<OllamaPsResponse>(`${endpoint}/api/ps`, { timeout: 5000 })
+          .catch((e) => {
+            logger.warn('/api/ps failed', errMessage(e))
+            return { data: { models: [] } as OllamaPsResponse }
+          })
       ])
-      const loadedNames = new Set(ps.data.models.map((m) => m.name))
+      // /api/ps names the running model under either `name` or `model` across
+      // Ollama versions — accept both so loaded-state detection is reliable.
+      const psModels = ps.data.models ?? []
+      const loadedNames = new Set(
+        psModels
+          .map((m) => m.model ?? m.name)
+          .filter((n): n is string => typeof n === 'string' && n.length > 0)
+      )
       const models: OllamaModelInfo[] = tags.data.models.map((m) => ({
         name: m.name,
         sizeBytes: m.size,
         loaded: loadedNames.has(m.name)
       }))
       // Sum of VRAM actually occupied by loaded models (size_vram from /api/ps).
-      const vramInUseBytes = ps.data.models.reduce(
-        (sum, m) => sum + (m.size_vram ?? 0),
+      const vramInUseBytes = psModels.reduce(
+        (sum, m) => sum + (m.size_vram ?? m.size ?? 0),
         0
       )
       return {

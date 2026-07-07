@@ -57,6 +57,9 @@ export function ModelSwitcher(): JSX.Element {
 
   const [open, setOpen] = useState(false)
   const [loadState, setLoadState] = useState<LoadState>('idle')
+  // Locally-tracked load state — a reliable fallback if Ollama's /api/ps
+  // reporting is flaky, so Unload is always available after a Load this session.
+  const [loadedLocal, setLoadedLocal] = useState<Set<string>>(new Set())
   const containerRef = useRef<HTMLDivElement>(null)
 
   const gpuVramGb = config?.gpuVramGb ?? 0
@@ -66,7 +69,8 @@ export function ModelSwitcher(): JSX.Element {
   const selectedOllamaName = selected ? ollamaNameFromId(selected.id) : null
   const isLoaded =
     !!selectedOllamaName &&
-    (ollamaStatus?.loadedModels?.includes(selectedOllamaName) ?? false)
+    ((ollamaStatus?.loadedModels?.includes(selectedOllamaName) ?? false) ||
+      loadedLocal.has(selectedOllamaName))
 
   // Favorited models float to the top, preserving the underlying order within
   // each group (stable sort).
@@ -104,11 +108,20 @@ export function ModelSwitcher(): JSX.Element {
     if (!selectedOllamaName) return
     setLoadState('loading')
     try {
-      const res = isLoaded
+      const willUnload = isLoaded
+      const res = willUnload
         ? await window.api.unloadOllamaModel(selectedOllamaName)
         : await window.api.loadOllamaModel(selectedOllamaName)
       if (res.ok) {
         setLoadState('idle')
+        // Update local tracking immediately so the button reflects reality even
+        // if /api/ps lags or under-reports.
+        setLoadedLocal((prev) => {
+          const next = new Set(prev)
+          if (willUnload) next.delete(selectedOllamaName)
+          else next.add(selectedOllamaName)
+          return next
+        })
         await refreshOllama() // updates loaded state + VRAM-in-use meter
       } else {
         setLoadState('error')
