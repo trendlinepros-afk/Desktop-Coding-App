@@ -1,5 +1,5 @@
 import { autoUpdater } from 'electron-updater'
-import { type BrowserWindow } from 'electron'
+import { app, type BrowserWindow } from 'electron'
 import { configStore } from './config-persistence'
 import { logger } from './logger'
 import { IPC } from '../../shared/ipc'
@@ -35,8 +35,10 @@ export class UpdaterService {
         releaseNotes: normalizeNotes(info.releaseNotes)
       })
     )
-    autoUpdater.on('update-not-available', () =>
-      this.emit({ state: 'not-available' })
+    autoUpdater.on('update-not-available', (info) =>
+      // info.version is the latest published version, which equals the current
+      // one here — surface it so the UI can say "you're on vX.Y.Z".
+      this.emit({ state: 'not-available', version: info?.version ?? app.getVersion() })
     )
     autoUpdater.on('download-progress', (p) =>
       this.emit({ state: 'downloading', percent: Math.round(p.percent) })

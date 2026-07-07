@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useStore } from '../store/useStore'
 
 /**
@@ -19,8 +20,32 @@ export function UpdateBanner(): JSX.Element | null {
   const installUpdate = useStore((s) => s.installUpdate)
   const dismissUpdate = useStore((s) => s.dismissUpdate)
 
+  // Auto-dismiss the transient "you're up to date" confirmation after a bit.
+  useEffect(() => {
+    if (updateStatus?.state !== 'not-available') return
+    const t = setTimeout(() => dismissUpdate(), 6000)
+    return () => clearTimeout(t)
+  }, [updateStatus, dismissUpdate])
+
   if (!updateStatus) return null
   const { state } = updateStatus
+
+  if (state === 'not-available') {
+    return (
+      <div className="flex items-center justify-between gap-4 bg-green-500/15 px-4 py-2 text-sm text-green-700 dark:text-green-400">
+        <span className="font-medium">
+          ✓ You are on the current version
+          {updateStatus.version ? ` (v${updateStatus.version})` : ''}.
+        </span>
+        <button
+          className="text-xs opacity-70 hover:opacity-100"
+          onClick={() => dismissUpdate()}
+        >
+          Dismiss ✕
+        </button>
+      </div>
+    )
+  }
 
   if (state === 'downloaded') {
     return (

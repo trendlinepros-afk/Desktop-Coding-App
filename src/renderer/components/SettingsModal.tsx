@@ -39,7 +39,7 @@ function updateStatusLabel(e: UpdateStatusEvent): string {
     case 'downloaded':
       return `Update downloaded${e.version ? ` (v${e.version})` : ''} — ready to install`
     case 'not-available':
-      return 'You are on the latest version'
+      return `✓ You are on the current version${e.version ? ` (v${e.version})` : ''}`
     case 'error':
       return `Update error: ${e.error ?? 'unknown'}`
     default:
@@ -348,7 +348,15 @@ export function SettingsModal(): JSX.Element | null {
                     Check for Updates
                   </button>
                   {updateStatus && (
-                    <div className="text-sm text-content-muted">
+                    <div
+                      className={`text-sm ${
+                        updateStatus.state === 'not-available'
+                          ? 'font-medium text-green-600 dark:text-green-400'
+                          : updateStatus.state === 'error'
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-content-muted'
+                      }`}
+                    >
                       {updateStatusLabel(updateStatus)}
                     </div>
                   )}
