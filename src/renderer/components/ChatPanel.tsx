@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, KeyboardEvent } from 'react'
+import type { ChatMode } from '@shared/config'
 import { useStore } from '../store/useStore'
 import { MessageBubble } from './MessageBubble'
 import { GeminiAnalysisMessage } from './GeminiAnalysisMessage'
+
+const MODES: { id: ChatMode; label: string; hint: string }[] = [
+  { id: 'plan', label: 'Plan', hint: 'Read-only. Plans a solution, makes no edits.' },
+  { id: 'ask', label: 'Ask before edits', hint: 'Proposes changes; you approve before they are written.' },
+  { id: 'auto', label: 'Full Auto', hint: 'Writes file changes to disk automatically.' }
+]
 
 /** Left-side chat interface: message list + input composer. */
 export function ChatPanel(): JSX.Element {
@@ -15,6 +22,12 @@ export function ChatPanel(): JSX.Element {
   const project = useStore((s) => s.project)
   const openProject = useStore((s) => s.openProject)
   const setNewProjectOpen = useStore((s) => s.setNewProjectOpen)
+  const config = useStore((s) => s.config)
+  const setChatMode = useStore((s) => s.setChatMode)
+  const pendingEdits = useStore((s) => s.pendingEdits)
+  const applyPendingEdits = useStore((s) => s.applyPendingEdits)
+  const rejectPendingEdits = useStore((s) => s.rejectPendingEdits)
+  const chatMode = config?.chatMode ?? 'ask'
 
   const [text, setText] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -104,12 +117,63 @@ export function ChatPanel(): JSX.Element {
         )}
       </div>
 
-      <div className="border-t border-border bg-surface p-3">
-        {project && (
-          <div className="mb-1.5 px-1 text-xs text-content-muted">
-            Working in <span className="font-medium text-content">{project.name}</span>
+      {/* Pending edits approval bar (Ask mode). */}
+      {pendingEdits && (
+        <div className="border-t border-amber-500/40 bg-amber-500/10 px-3 py-2">
+          <div className="mb-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+            The assistant proposed {pendingEdits.files.length} file change(s) — review and apply:
           </div>
-        )}
+          <ul className="mb-2 max-h-24 space-y-0.5 overflow-y-auto text-xs text-content-muted">
+            {pendingEdits.files.map((f, i) => (
+              <li key={i} className="flex justify-between gap-2">
+                <span className="truncate font-mono">{f.path}</span>
+                <span className="shrink-0 uppercase">{f.action}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2">
+            <button
+              className="rounded bg-accent px-3 py-1 text-xs text-accent-fg hover:opacity-90"
+              onClick={() => void applyPendingEdits()}
+            >
+              Apply changes
+            </button>
+            <button
+              className="rounded border border-border px-3 py-1 text-xs text-content hover:bg-surface-muted"
+              onClick={() => rejectPendingEdits()}
+            >
+              Reject
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="border-t border-border bg-surface p-3">
+        <div className="mb-1.5 flex items-center justify-between px-1">
+          {/* Mode toggle near the chat bar. */}
+          <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+            {MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                title={m.hint}
+                onClick={() => void setChatMode(m.id)}
+                className={`rounded px-2 py-0.5 text-xs ${
+                  chatMode === m.id
+                    ? 'bg-accent text-accent-fg'
+                    : 'text-content-muted hover:bg-surface-muted'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          {project && (
+            <span className="text-xs text-content-muted">
+              Working in <span className="font-medium text-content">{project.name}</span>
+            </span>
+          )}
+        </div>
         <div className="flex items-end gap-2">
           <textarea
             ref={textareaRef}

@@ -40,6 +40,7 @@ export const IPC = {
   ollamaStatus: 'ollama:status',
   ollamaStart: 'ollama:start',
   ollamaLoadModel: 'ollama:load-model',
+  ollamaUnloadModel: 'ollama:unload-model',
   ollamaPullModel: 'ollama:pull-model',
   ollamaPullProgress: 'ollama:pull-progress', // main -> renderer event
   ollamaCancelPull: 'ollama:cancel-pull',
@@ -69,6 +70,7 @@ export const IPC = {
   fileDelete: 'file:delete',
   fileRename: 'file:rename',
   fileApplyBlocks: 'file:apply-blocks',
+  filePreviewBlocks: 'file:preview-blocks',
   fileChanged: 'file:changed', // main -> renderer event (watcher)
 
   // Preview
@@ -110,6 +112,7 @@ export interface AppApi {
   getOllamaStatus(): Promise<OllamaStatus>
   startOllama(): Promise<OllamaStatus>
   loadOllamaModel(name: string): Promise<{ ok: boolean; error?: string }>
+  unloadOllamaModel(name: string): Promise<{ ok: boolean; error?: string }>
   pullOllamaModel(name: string): Promise<{ ok: boolean; error?: string }>
   cancelOllamaPull(name: string): Promise<void>
   onOllamaPullProgress(
@@ -141,6 +144,9 @@ export interface AppApi {
   deleteFile(relPath: string): Promise<void>
   renameFile(relPath: string, newRelPath: string): Promise<void>
   applyFileBlocks(
+    raw: string
+  ): Promise<{ path: string; action: string }[]>
+  previewFileBlocks(
     raw: string
   ): Promise<{ path: string; action: string }[]>
   onFileChanged(cb: (path: string) => void): () => void

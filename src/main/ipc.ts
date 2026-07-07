@@ -47,6 +47,9 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IPC.ollamaLoadModel, (_e, name: string) =>
     ollamaService.loadModel(name)
   )
+  ipcMain.handle(IPC.ollamaUnloadModel, (_e, name: string) =>
+    ollamaService.unloadModel(name)
+  )
   ipcMain.handle(IPC.ollamaPullModel, (_e, name: string) =>
     ollamaService.pullModel(name, (status, percent) => {
       getWindow()?.webContents.send(IPC.ollamaPullProgress, {
@@ -116,6 +119,9 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   )
   ipcMain.handle(IPC.fileApplyBlocks, (_e, raw: string) =>
     fileManager.applyFileBlocks(raw)
+  )
+  ipcMain.handle(IPC.filePreviewBlocks, (_e, raw: string) =>
+    fileManager.previewFileBlocks(raw)
   )
 
   // ---- Preview ----

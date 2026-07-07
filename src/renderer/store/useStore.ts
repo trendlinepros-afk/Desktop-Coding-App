@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppConfig } from '@shared/config'
+import { modeSystemPrompt, type AppConfig, type ChatMode } from '@shared/config'
 import type {
   ChatMessage,
   ChatRequest,
@@ -49,6 +49,9 @@ interface AppState {
   loadConversation: (id: string) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
 
+  // Chat mode (plan / ask / auto)
+  setChatMode: (mode: ChatMode) => Promise<void>
+
   // Chat streaming
   isStreaming: boolean
   currentRequestId: string | null
@@ -57,6 +60,11 @@ interface AppState {
   confirmPendingSend: () => Promise<void>
   cancelPendingSend: () => void
   stopStreaming: () => void
+
+  // Pending file edits awaiting approval (ask mode)
+  pendingEdits: { raw: string; files: { path: string; action: string }[] } | null
+  applyPendingEdits: () => Promise<void>
+  rejectPendingEdits: () => void
 
   // Project / files
   project: ProjectInfo | null
@@ -200,10 +208,38 @@ export const useStore = create<AppState>((set, get) => ({
     await get().refreshConversations()
   },
 
+  // ---- Chat mode ----
+  setChatMode: async (mode) => {
+    await get().updateConfig({ chatMode: mode })
+  },
+
   // ---- Chat streaming ----
   isStreaming: false,
   currentRequestId: null,
   pendingSend: null,
+  pendingEdits: null,
+
+  applyPendingEdits: async () => {
+    const pe = get().pendingEdits
+    if (!pe) return
+    set({ pendingEdits: null })
+    try {
+      const changes = await window.api.applyFileBlocks(pe.raw)
+      await get().refreshFileTree()
+      get()._appendSystemMessage(
+        `✓ Applied ${changes.length} file change(s): ${changes.map((c) => c.path).join(', ')}`
+      )
+      await get()._persistCurrent()
+    } catch (err) {
+      get().setBanner({ kind: 'error', text: `Apply failed: ${(err as Error).message}` })
+    }
+  },
+  rejectPendingEdits: () => {
+    if (!get().pendingEdits) return
+    set({ pendingEdits: null })
+    get()._appendSystemMessage('✗ Changes rejected — nothing was written.')
+    void get()._persistCurrent()
+  },
 
   sendMessage: async (text) => {
     if (!text.trim() || get().isStreaming) return
@@ -416,19 +452,32 @@ export const useStore = create<AppState>((set, get) => ({
     const current = get().current
     if (!current) return
     const last = current.messages[current.messages.length - 1]
-    // Write any file blocks the assistant emitted to the active project.
+    const mode = get().config?.chatMode ?? 'ask'
+    // Handle the assistant's file blocks according to the active mode.
     if (last?.role === 'assistant' && last.content && get().project) {
-      try {
-        const changes = await window.api.applyFileBlocks(last.content)
-        if (changes.length) {
-          await get().refreshFileTree()
-          get()._appendSystemMessage(
-            `Wrote ${changes.length} file(s): ${changes.map((c) => c.path).join(', ')}`
-          )
+      if (mode === 'auto') {
+        // Full auto: write immediately.
+        try {
+          const changes = await window.api.applyFileBlocks(last.content)
+          if (changes.length) {
+            await get().refreshFileTree()
+            get()._appendSystemMessage(
+              `Wrote ${changes.length} file(s): ${changes.map((c) => c.path).join(', ')}`
+            )
+          }
+        } catch {
+          // non-fatal
         }
-      } catch {
-        // non-fatal
+      } else if (mode === 'ask') {
+        // Ask: preview the changes and wait for approval before writing.
+        try {
+          const files = await window.api.previewFileBlocks(last.content)
+          if (files.length) set({ pendingEdits: { raw: last.content, files } })
+        } catch {
+          // non-fatal
+        }
       }
+      // 'plan': never writes; the AI was instructed not to emit file blocks.
     }
     await get()._persistCurrent()
     // Auto-analyze the live preview after a completed task, if enabled.
@@ -457,12 +506,25 @@ export const useStore = create<AppState>((set, get) => ({
   // ---- Internal helpers ----
   _buildRequest: (text) => {
     const cfg = get().config!
+    const project = get().project
+    // Lead with a system message describing the active mode (plan/ask/auto) and
+    // the project context, so the model knows what it may do and where.
+    const systemParts = [modeSystemPrompt(cfg.chatMode)]
+    if (project) {
+      systemParts.push(
+        `The active project is "${project.name}". Use file paths relative to the project root.`
+      )
+    }
     const history = (get().current?.messages ?? [])
       .filter((m) => m.kind === 'chat' && m.role !== 'system')
       .map((m) => ({ role: m.role, content: m.content }))
     return {
       modelId: get().selectedModelId!,
-      messages: [...history, { role: 'user', content: text }],
+      messages: [
+        { role: 'system' as const, content: systemParts.join(' ') },
+        ...history,
+        { role: 'user' as const, content: text }
+      ],
       temperature: cfg.temperature,
       maxTokens: cfg.maxTokens
     }
@@ -498,7 +560,7 @@ export const useStore = create<AppState>((set, get) => ({
       projectName: get().project?.name ?? current.projectName,
       messages: [...current.messages, userMsg, assistantMsg]
     }
-    set({ current, isStreaming: true })
+    set({ current, isStreaming: true, pendingEdits: null })
     const { requestId } = await window.api.sendChat(req)
     set({ currentRequestId: requestId })
   },

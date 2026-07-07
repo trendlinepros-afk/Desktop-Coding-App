@@ -12,12 +12,11 @@ import {
 import chokidar, { type FSWatcher } from 'chokidar'
 import { configStore } from './config-persistence'
 import { logger } from './logger'
-import type {
-  FileNode,
-  ProjectInfo,
-  ParsedFileBlock,
-  FileChange
-} from '../../shared/types'
+import { parseFileBlocks } from './file-blocks'
+import type { FileNode, ProjectInfo, FileChange } from '../../shared/types'
+
+// Re-export so existing importers (and tests) can keep using it from here.
+export { parseFileBlocks }
 
 const IGNORED_DIRS = new Set([
   'node_modules',
@@ -179,6 +178,23 @@ export class FileManager {
     return changes
   }
 
+  /**
+   * Parse file blocks WITHOUT writing anything — used by "ask" mode to show the
+   * user what would change so they can approve or reject first.
+   */
+  previewFileBlocks(raw: string): FileChange[] {
+    return parseFileBlocks(raw).map((b) => {
+      if (b.action === 'delete') return { path: b.path, action: 'delete' as const }
+      let existed = false
+      try {
+        existed = existsSync(this.resolveSafe(b.path))
+      } catch {
+        existed = false
+      }
+      return { path: b.path, action: existed ? ('update' as const) : ('create' as const) }
+    })
+  }
+
   private startWatching(root: string): void {
     this.watcher?.close()
     this.watcher = chokidar.watch(root, {
@@ -203,44 +219,6 @@ export class FileManager {
     this.watcher?.close()
     this.watcher = null
   }
-}
-
-/** Extract file blocks from markdown/assistant text. Exported for testing. */
-export function parseFileBlocks(raw: string): ParsedFileBlock[] {
-  const blocks: ParsedFileBlock[] = []
-  const fenceRe = /```([^\n]*)\n([\s\S]*?)```/g
-  let match: RegExpExecArray | null
-  // Track a pending `// FILE: path` directive appearing before a fence.
-  const lines = raw.split('\n')
-  const directivePaths = new Map<number, string>()
-  lines.forEach((line, i) => {
-    const m = line.match(/^(?:\/\/|#|<!--)?\s*FILE:\s*(.+?)\s*(?:-->)?$/i)
-    if (m) directivePaths.set(i, m[1].trim())
-  })
-
-  while ((match = fenceRe.exec(raw)) !== null) {
-    const header = match[1].trim()
-    const body = match[2]
-    const path = extractPathFromHeader(header)
-    if (!path) continue
-    const action = body.trim() === 'DELETE' ? 'delete' : 'update'
-    blocks.push({ path, content: action === 'delete' ? '' : body, action })
-  }
-  return blocks
-}
-
-function extractPathFromHeader(header: string): string | null {
-  // forms: `title="x"`, `file=x`, `path:x`, or `<lang> x`
-  const title = header.match(/title=["']([^"']+)["']/)
-  if (title) return title[1]
-  const file = header.match(/(?:file|path)[:=]["']?([^\s"']+)["']?/i)
-  if (file) return file[1]
-  // `lang path/to/file.ext` — take a token that looks like a path.
-  const tokens = header.split(/\s+/)
-  for (const t of tokens) {
-    if (/[./\\]/.test(t) && /\.\w+$/.test(t)) return t
-  }
-  return null
 }
 
 function sanitizeName(name: string): string {

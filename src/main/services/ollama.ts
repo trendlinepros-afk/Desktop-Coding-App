@@ -150,6 +150,20 @@ export class OllamaService {
     }
   }
 
+  /** Unload a model from memory (frees VRAM) via keep_alive: 0. */
+  async unloadModel(name: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      await axios.post(
+        `${this.endpoint}/api/generate`,
+        { model: name, keep_alive: 0 },
+        { timeout: 15000 }
+      )
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: errMessage(err) }
+    }
+  }
+
   /** Pull a model, streaming progress to `onProgress`. Cancellable. */
   async pullModel(
     name: string,

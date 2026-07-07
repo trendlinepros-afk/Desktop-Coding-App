@@ -30,6 +30,7 @@ const api: AppApi = {
   getOllamaStatus: () => ipcRenderer.invoke(IPC.ollamaStatus),
   startOllama: () => ipcRenderer.invoke(IPC.ollamaStart),
   loadOllamaModel: (name) => ipcRenderer.invoke(IPC.ollamaLoadModel, name),
+  unloadOllamaModel: (name) => ipcRenderer.invoke(IPC.ollamaUnloadModel, name),
   pullOllamaModel: (name) => ipcRenderer.invoke(IPC.ollamaPullModel, name),
   cancelOllamaPull: (name) => ipcRenderer.invoke(IPC.ollamaCancelPull, name),
   onOllamaPullProgress: (cb) => subscribe(IPC.ollamaPullProgress, cb),
@@ -62,6 +63,7 @@ const api: AppApi = {
   renameFile: (relPath, newRelPath) =>
     ipcRenderer.invoke(IPC.fileRename, relPath, newRelPath),
   applyFileBlocks: (raw) => ipcRenderer.invoke(IPC.fileApplyBlocks, raw),
+  previewFileBlocks: (raw) => ipcRenderer.invoke(IPC.filePreviewBlocks, raw),
   onFileChanged: (cb) => subscribe<string>(IPC.fileChanged, cb),
 
   // Preview

@@ -53,7 +53,11 @@ export class PreviewManager {
         running: false,
         url: null,
         kind: 'unknown',
-        error: 'Unable to preview this project type.'
+        error:
+          'Live Preview supports web projects — an index.html, a built SPA ' +
+          '(dist/build/out), or a Node app with an npm "start" script. This ' +
+          'folder has none of those (desktop apps like Python/pygame can\'t be ' +
+          'previewed in the browser).'
       }
       return this.status
     }

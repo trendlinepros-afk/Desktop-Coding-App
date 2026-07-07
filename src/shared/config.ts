@@ -13,6 +13,16 @@ export type ProviderId = 'openai' | 'anthropic' | 'gemini' | 'deepseek'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 
+/**
+ * How the assistant is allowed to change files:
+ *  - 'plan': read-only planning. No file edits at all; the AI produces a plan
+ *    and asks permission to switch modes to implement it.
+ *  - 'ask':  the AI proposes file changes but they are not written until the
+ *    user approves (Apply / Reject).
+ *  - 'auto': file changes are written to disk automatically (full auto).
+ */
+export type ChatMode = 'plan' | 'ask' | 'auto'
+
 export interface ProviderConfig {
   apiKey: string
   /** The model id currently selected for this provider. */
@@ -63,6 +73,9 @@ export interface AppConfig {
   temperature: number
   maxTokens: number
 
+  // How file edits are handled (plan / ask / auto).
+  chatMode: ChatMode
+
   // Custom Ollama model VRAM entries (merged with hardcoded MODEL_VRAM)
   customModels: CustomOllamaModel[]
 
@@ -99,6 +112,8 @@ export const DEFAULT_CONFIG: AppConfig = {
 
   temperature: 0.7,
   maxTokens: 2048,
+
+  chatMode: 'ask',
 
   customModels: [],
 
@@ -149,6 +164,39 @@ const MODEL_DESCRIPTIONS: { pattern: RegExp; text: string }[] = [
 export function describeModel(name: string): string {
   const hit = MODEL_DESCRIPTIONS.find((d) => d.pattern.test(name))
   return hit ? hit.text : 'General-purpose local model.'
+}
+
+/** System-prompt guidance injected for the active chat mode. */
+export function modeSystemPrompt(mode: ChatMode): string {
+  const fileFormat =
+    'CRITICAL — HOW TO WRITE FILES: To create or modify a file you MUST output its COMPLETE contents in a fenced code block whose info string includes the file path via title="...", exactly like this:\n' +
+    '```python title="main.py"\n<full file contents here>\n```\n' +
+    'Rules: (1) ALWAYS put the path in title="..." on the opening fence — a code block with no path is NOT saved. ' +
+    '(2) If the user asks for a single program/script, still choose a sensible filename (e.g. main.py, index.html, game.py). ' +
+    '(3) Put shell/terminal commands (like `pip install pygame`) in a plain ```bash block or prose — never as a titled file. ' +
+    '(4) Output the entire file, not a snippet. (5) To delete a file, make the block body exactly DELETE.'
+  switch (mode) {
+    case 'plan':
+      return (
+        'You are in PLAN MODE (read-only). Do NOT write, edit, or delete any files, ' +
+        'and do NOT output file code blocks. Instead, analyze the request and produce a clear, ' +
+        'step-by-step implementation plan (files to create/change, key decisions, risks). ' +
+        'When you have a solid, complete plan, STOP and ask the user for permission to switch to ' +
+        '"Ask before edits" or "Full Auto" mode to implement it — tell them to use the mode toggle above the chat box.'
+      )
+    case 'ask':
+      return (
+        'You are in ASK MODE. You may propose file changes, but they will NOT be applied until the ' +
+        'user approves them. Briefly explain what you will change, then provide the changes. ' +
+        fileFormat
+      )
+    case 'auto':
+      return (
+        'You are in FULL AUTO mode. Implement the request directly. Your file changes are written to ' +
+        'disk automatically. ' +
+        fileFormat
+      )
+  }
 }
 
 /** A model in the curated download catalog. */

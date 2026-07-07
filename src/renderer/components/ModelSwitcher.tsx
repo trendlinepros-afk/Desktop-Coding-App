@@ -53,6 +53,7 @@ export function ModelSwitcher(): JSX.Element {
   const setBanner = useStore((s) => s.setBanner)
   const refreshOllama = useStore((s) => s.refreshOllama)
   const toggleFavorite = useStore((s) => s.toggleFavorite)
+  const ollamaStatus = useStore((s) => s.ollamaStatus)
 
   const [open, setOpen] = useState(false)
   const [loadState, setLoadState] = useState<LoadState>('idle')
@@ -63,6 +64,9 @@ export function ModelSwitcher(): JSX.Element {
   const isFavorite = (id: string): boolean => favorites.includes(id)
   const selected = models.find((m) => m.id === selectedModelId) ?? null
   const selectedOllamaName = selected ? ollamaNameFromId(selected.id) : null
+  const isLoaded =
+    !!selectedOllamaName &&
+    (ollamaStatus?.loadedModels?.includes(selectedOllamaName) ?? false)
 
   // Favorited models float to the top, preserving the underlying order within
   // each group (stable sort).
@@ -95,22 +99,30 @@ export function ModelSwitcher(): JSX.Element {
     setOpen(false)
   }
 
-  const handleLoad = async (): Promise<void> => {
+  // Toggle: load the selected local model, or unload it if already loaded.
+  const handleLoadToggle = async (): Promise<void> => {
     if (!selectedOllamaName) return
     setLoadState('loading')
     try {
-      const res = await window.api.loadOllamaModel(selectedOllamaName)
+      const res = isLoaded
+        ? await window.api.unloadOllamaModel(selectedOllamaName)
+        : await window.api.loadOllamaModel(selectedOllamaName)
       if (res.ok) {
-        setLoadState('loaded')
-        // Refresh so the VRAM-in-use meter reflects the newly loaded model.
-        await refreshOllama()
+        setLoadState('idle')
+        await refreshOllama() // updates loaded state + VRAM-in-use meter
       } else {
         setLoadState('error')
-        setBanner({ kind: 'error', text: `Failed to load model: ${res.error ?? 'unknown error'}` })
+        setBanner({
+          kind: 'error',
+          text: `Failed to ${isLoaded ? 'unload' : 'load'} model: ${res.error ?? 'unknown error'}`
+        })
       }
     } catch (err) {
       setLoadState('error')
-      setBanner({ kind: 'error', text: `Failed to load model: ${(err as Error).message}` })
+      setBanner({
+        kind: 'error',
+        text: `Failed to ${isLoaded ? 'unload' : 'load'} model: ${(err as Error).message}`
+      })
     }
   }
 
@@ -138,15 +150,25 @@ export function ModelSwitcher(): JSX.Element {
       {selectedOllamaName && (
         <button
           type="button"
-          className="rounded border border-border bg-surface-raised px-3 py-1.5 text-sm hover:bg-surface-muted disabled:opacity-50"
+          className={`rounded border px-3 py-1.5 text-sm disabled:opacity-50 ${
+            isLoaded
+              ? 'border-green-500/50 bg-green-500/10 text-green-700 hover:bg-green-500/20 dark:text-green-400'
+              : 'border-border bg-surface-raised hover:bg-surface-muted'
+          }`}
           disabled={loadState === 'loading'}
-          onClick={() => void handleLoad()}
-          title="Load the selected local model into Ollama memory"
+          onClick={() => void handleLoadToggle()}
+          title={
+            isLoaded
+              ? 'Model is loaded in memory — click to unload and free VRAM'
+              : 'Load the selected local model into Ollama memory'
+          }
         >
           {loadState === 'loading'
-            ? 'Loading…'
-            : loadState === 'loaded'
-              ? 'Loaded ✓'
+            ? isLoaded
+              ? 'Unloading…'
+              : 'Loading…'
+            : isLoaded
+              ? 'Loaded ✓ — Unload'
               : 'Load Model'}
         </button>
       )}
