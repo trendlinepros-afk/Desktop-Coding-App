@@ -65,7 +65,7 @@ export default function App(): JSX.Element {
       mql.removeEventListener('change', onScheme)
       clearInterval(interval)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally run once on mount; store actions are stable references.
   }, [])
 
   // Split-pane drag handling.

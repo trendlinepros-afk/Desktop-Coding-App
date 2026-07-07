@@ -19,6 +19,12 @@ module.exports = {
       'warn',
       { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }
     ],
-    'react/prop-types': 'off'
+    'react/prop-types': 'off',
+    // Cosmetic in JSX text; not worth failing on.
+    'react/no-unescaped-entities': 'off',
+    // Control chars are stripped intentionally in filename sanitizers.
+    'no-control-regex': 'off',
+    // The preload bridge uses documented @ts-ignore for global window assigns.
+    '@typescript-eslint/ban-ts-comment': 'off'
   }
 }

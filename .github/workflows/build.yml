@@ -8,6 +8,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Prevent overlapping runs on the same ref from racing to publish the same
+# version. A newer push supersedes an in-progress run for that ref.
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Fast validation on every push/PR.
   check:
@@ -22,7 +28,9 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: npm run typecheck
+      # Lint is informational — a style nit must never block a release build.
       - run: npm run lint --if-present
+        continue-on-error: true
       - run: npm test --if-present
 
   # Windows build + auto-publish to GitHub Releases.

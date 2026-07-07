@@ -39,7 +39,8 @@ export async function listModels(): Promise<ModelDescriptor[]> {
   }
 
   // Cloud provider models.
-  ;(Object.keys(PROVIDER_MODELS) as ProviderId[]).forEach((provider) => {
+  const providers = Object.keys(PROVIDER_MODELS) as ProviderId[]
+  providers.forEach((provider) => {
     const key = cfg.api[provider].apiKey.trim()
     for (const model of PROVIDER_MODELS[provider]) {
       out.push({
