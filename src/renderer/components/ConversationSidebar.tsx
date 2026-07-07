@@ -24,6 +24,7 @@ function formatUpdatedAt(iso: string): string {
 export function ConversationSidebar(): JSX.Element {
   const conversations = useStore((s) => s.conversations)
   const current = useStore((s) => s.current)
+  const project = useStore((s) => s.project)
   const refreshConversations = useStore((s) => s.refreshConversations)
   const newConversation = useStore((s) => s.newConversation)
   const loadConversation = useStore((s) => s.loadConversation)
@@ -56,7 +57,13 @@ export function ConversationSidebar(): JSX.Element {
         <span className="text-sm font-semibold text-content">Conversations</span>
         <button
           type="button"
-          className="rounded bg-accent px-2 py-1 text-xs text-accent-fg hover:opacity-90"
+          disabled={!project}
+          title={
+            project
+              ? 'Start a new conversation'
+              : 'Create or open a project first'
+          }
+          className="rounded bg-accent px-2 py-1 text-xs text-accent-fg hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           onClick={() => newConversation()}
         >
           + New

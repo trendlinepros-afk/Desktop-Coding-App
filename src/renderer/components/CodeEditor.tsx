@@ -45,8 +45,6 @@ export function CodeEditor(): JSX.Element {
   const project = useStore((s) => s.project)
   const openFilePath = useStore((s) => s.openFilePath)
   const openFileContent = useStore((s) => s.openFileContent)
-  const createProject = useStore((s) => s.createProject)
-  const openProject = useStore((s) => s.openProject)
   const saveOpenFile = useStore((s) => s.saveOpenFile)
   const setBanner = useStore((s) => s.setBanner)
 
@@ -56,25 +54,6 @@ export function CodeEditor(): JSX.Element {
   useEffect(() => {
     setDraft(openFileContent)
   }, [openFilePath, openFileContent])
-
-  const handleNewProject = async (): Promise<void> => {
-    const name = window.prompt('New project name:')
-    if (!name || !name.trim()) return
-    try {
-      await createProject(name.trim())
-    } catch (err) {
-      setBanner({ kind: 'error', text: `Cannot create project: ${(err as Error).message}` })
-    }
-  }
-
-  const handleOpenFolder = async (): Promise<void> => {
-    try {
-      const p = await window.api.pickFolder()
-      if (p) await openProject(p)
-    } catch (err) {
-      setBanner({ kind: 'error', text: `Cannot open folder: ${(err as Error).message}` })
-    }
-  }
 
   const handleCopy = async (): Promise<void> => {
     try {
@@ -91,29 +70,17 @@ export function CodeEditor(): JSX.Element {
   }
 
   // ---- No project ----
+  // The project create/open buttons live in the chat panel only (single source),
+  // so here we just point the user there instead of duplicating them.
   if (!project) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 bg-surface p-8 text-center">
-        <div>
-          <h2 className="mb-1 text-lg font-semibold text-content">No project open</h2>
-          <p className="text-sm text-content-muted">
-            Create a new project or open an existing folder to start coding.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            className="rounded bg-accent px-3 py-1.5 text-sm text-accent-fg hover:opacity-90"
-            onClick={() => void handleNewProject()}
-          >
-            New Project
-          </button>
-          <button
-            className="rounded border border-border px-3 py-1.5 text-sm text-content hover:bg-surface-muted"
-            onClick={() => void handleOpenFolder()}
-          >
-            Open Folder
-          </button>
-        </div>
+      <div className="flex h-full flex-col items-center justify-center gap-1 bg-surface p-8 text-center">
+        <h2 className="text-lg font-semibold text-content">No project open</h2>
+        <p className="max-w-xs text-sm text-content-muted">
+          Use <span className="font-medium text-content">New Project</span> or{' '}
+          <span className="font-medium text-content">Open Folder</span> in the
+          chat panel to start coding.
+        </p>
       </div>
     )
   }
