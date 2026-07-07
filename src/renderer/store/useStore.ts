@@ -593,6 +593,9 @@ export const useStore = create<AppState>((set, get) => ({
       // 'plan': never writes; the AI was instructed not to emit file blocks.
     }
     await get()._persistCurrent()
+    // A chat request lazily loads the model in Ollama; refresh so the
+    // Load/Unload button and VRAM meter reflect that it's now resident.
+    void get().refreshOllama()
     // Auto-analyze the live preview after a completed task, if enabled.
     if (get().config?.geminiAnalysisEnabled && get().previewStatus?.running) {
       await get().analyzeCurrentPreview()

@@ -68,6 +68,11 @@ export interface AppConfig {
   // Ollama
   ollamaEndpoint: string
   autoStartOllama: boolean
+  /** When enabled, the loaded model auto-unloads after this many seconds of
+   *  inactivity (maps to Ollama's keep_alive). When disabled the model stays
+   *  loaded until manually unloaded. */
+  llmTimeoutEnabled: boolean
+  llmKeepAliveSeconds: number
 
   // Advanced
   temperature: number
@@ -115,6 +120,8 @@ export const DEFAULT_CONFIG: AppConfig = {
 
   ollamaEndpoint: 'http://localhost:11434',
   autoStartOllama: true,
+  llmTimeoutEnabled: false,
+  llmKeepAliveSeconds: 300,
 
   temperature: 0.7,
   maxTokens: 2048,

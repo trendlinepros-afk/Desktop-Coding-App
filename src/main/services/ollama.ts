@@ -28,6 +28,16 @@ export class OllamaService {
     return configStore.load().ollamaEndpoint.replace(/\/$/, '')
   }
 
+  /**
+   * keep_alive value for requests: the configured inactivity timeout (seconds)
+   * when the "Local LLM timeout" setting is on, otherwise -1 which tells Ollama
+   * to keep the model resident until it is explicitly unloaded.
+   */
+  private keepAlive(): number {
+    const cfg = configStore.load()
+    return cfg.llmTimeoutEnabled ? Math.max(0, cfg.llmKeepAliveSeconds) : -1
+  }
+
   async status(): Promise<OllamaStatus> {
     const endpoint = this.endpoint
     try {
@@ -151,7 +161,7 @@ export class OllamaService {
     try {
       await axios.post(
         `${this.endpoint}/api/generate`,
-        { model: name, prompt: '', stream: false, keep_alive: '30m' },
+        { model: name, prompt: '', stream: false, keep_alive: this.keepAlive() },
         { timeout: 120000 }
       )
       return { ok: true }
@@ -249,6 +259,7 @@ export class OllamaService {
         model,
         messages,
         stream: true,
+        keep_alive: this.keepAlive(),
         options: {
           temperature: opts.temperature,
           num_predict: opts.maxTokens

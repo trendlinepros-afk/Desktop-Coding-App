@@ -89,6 +89,11 @@ export function SettingsModal(): JSX.Element | null {
   const [savedFlash, setSavedFlash] = useState<Partial<Record<ProviderId, boolean>>>({})
   const [prereqs, setPrereqs] = useState<Prereq[] | null>(null)
   const [detectingVram, setDetectingVram] = useState(false)
+  // Display unit for the LLM inactivity timeout (stored as seconds in config).
+  const initialSecs = config?.llmKeepAliveSeconds ?? 300
+  const [timeoutUnit, setTimeoutUnit] = useState<'minutes' | 'seconds'>(
+    initialSecs % 60 === 0 ? 'minutes' : 'seconds'
+  )
   // Per-model download progress for the catalog (keyed by model name).
   const [pullProgress, setPullProgress] = useState<
     Record<string, { status: string; percent: number }>
@@ -145,6 +150,17 @@ export function SettingsModal(): JSX.Element | null {
   if (!settingsOpen || !config) return null
 
   const close = (): void => setSettingsOpen(false)
+
+  // LLM timeout value shown in the selected unit; writes back seconds.
+  const timeoutSeconds = config.llmKeepAliveSeconds
+  const timeoutValue =
+    timeoutUnit === 'minutes'
+      ? Math.max(1, Math.round(timeoutSeconds / 60))
+      : timeoutSeconds
+  const setTimeoutValue = (value: number): void => {
+    const secs = timeoutUnit === 'minutes' ? Math.round(value * 60) : Math.round(value)
+    void updateConfig({ llmKeepAliveSeconds: Math.max(1, secs) })
+  }
 
   // Auto-saved discrete choices (model select, enabled toggle).
   const setProvider = (
@@ -584,6 +600,51 @@ export function SettingsModal(): JSX.Element | null {
                   />
                   Auto-start Ollama on launch
                 </label>
+
+                {/* Local LLM inactivity timeout (Ollama keep_alive). */}
+                <div className="rounded border border-border bg-surface p-3">
+                  <label className="flex items-center gap-2 text-sm text-content">
+                    <input
+                      type="checkbox"
+                      checked={config.llmTimeoutEnabled}
+                      onChange={(e) =>
+                        void updateConfig({ llmTimeoutEnabled: e.target.checked })
+                      }
+                    />
+                    Local LLM timeout (auto-unload after inactivity)
+                  </label>
+                  {config.llmTimeoutEnabled && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-sm text-content-muted">
+                        Unload after
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={timeoutValue}
+                        onChange={(e) => setTimeoutValue(Number(e.target.value) || 1)}
+                        className={`${inputCls} mt-0 w-24`}
+                      />
+                      <select
+                        value={timeoutUnit}
+                        onChange={(e) =>
+                          setTimeoutUnit(e.target.value as 'minutes' | 'seconds')
+                        }
+                        className={`${inputCls} mt-0 w-32`}
+                      >
+                        <option value="minutes">minutes</option>
+                        <option value="seconds">seconds</option>
+                      </select>
+                      <span className="text-sm text-content-muted">of inactivity</span>
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-content-muted">
+                    {config.llmTimeoutEnabled
+                      ? `The model unloads and frees VRAM after ${config.llmKeepAliveSeconds}s idle.`
+                      : 'Disabled — the model stays loaded until you unload it manually.'}
+                  </p>
+                </div>
 
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-content">Status:</span>
