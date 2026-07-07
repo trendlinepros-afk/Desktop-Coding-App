@@ -112,6 +112,7 @@ function mergeConfig(base: AppConfig, patch: Partial<AppConfig>): AppConfig {
     deepseek: { ...base.api.deepseek, ...patch.api?.deepseek }
   }
   if (patch.customModels) out.customModels = patch.customModels
+  if (patch.favoriteModels) out.favoriteModels = patch.favoriteModels
   // Config version is owned by the app, never downgraded by a stored value.
   out.configVersion = Math.max(base.configVersion, patch.configVersion ?? 0)
   return out

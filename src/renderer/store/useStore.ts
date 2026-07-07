@@ -35,6 +35,7 @@ interface AppState {
   selectedModelId: string | null
   refreshModels: () => Promise<void>
   selectModel: (id: string) => Promise<void>
+  toggleFavorite: (id: string) => Promise<void>
 
   // Ollama
   ollamaStatus: OllamaStatus | null
@@ -165,6 +166,13 @@ export const useStore = create<AppState>((set, get) => ({
     await get().updateConfig({ lastSelectedModel: id })
     const current = get().current
     if (current) set({ current: { ...current, model: id } })
+  },
+  toggleFavorite: async (id) => {
+    const favs = get().config?.favoriteModels ?? []
+    const next = favs.includes(id)
+      ? favs.filter((f) => f !== id)
+      : [...favs, id]
+    await get().updateConfig({ favoriteModels: next })
   },
 
   // ---- Ollama ----

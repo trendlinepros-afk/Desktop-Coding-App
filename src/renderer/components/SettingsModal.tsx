@@ -76,6 +76,8 @@ export function SettingsModal(): JSX.Element | null {
   const installUpdate = useStore((s) => s.installUpdate)
 
   const refreshModels = useStore((s) => s.refreshModels)
+  const toggleFavorite = useStore((s) => s.toggleFavorite)
+  const favorites = config?.favoriteModels ?? []
 
   const [section, setSection] = useState<Section>('general')
   const [configPath, setConfigPath] = useState('')
@@ -637,6 +639,22 @@ export function SettingsModal(): JSX.Element | null {
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 text-sm font-medium text-content">
+                                <button
+                                  type="button"
+                                  onClick={() => void toggleFavorite(`ollama:${cm.name}`)}
+                                  title={
+                                    favorites.includes(`ollama:${cm.name}`)
+                                      ? 'Unfavorite'
+                                      : 'Favorite (pin to top of the model list)'
+                                  }
+                                  className={`leading-none ${
+                                    favorites.includes(`ollama:${cm.name}`)
+                                      ? 'text-amber-400'
+                                      : 'text-content-muted hover:text-amber-400'
+                                  }`}
+                                >
+                                  {favorites.includes(`ollama:${cm.name}`) ? '★' : '☆'}
+                                </button>
                                 {cm.name}
                                 <span
                                   className={`rounded px-1.5 py-0.5 text-xs font-normal ${

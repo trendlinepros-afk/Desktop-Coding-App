@@ -66,6 +66,10 @@ export interface AppConfig {
   // Custom Ollama model VRAM entries (merged with hardcoded MODEL_VRAM)
   customModels: CustomOllamaModel[]
 
+  // Favorited model ids (e.g. "ollama:deepseek-coder-v2:16b", "openai:gpt-4o").
+  // Favorites sort to the top of the model switcher.
+  favoriteModels: string[]
+
   // The last selected model id across providers, e.g. "ollama:deepseek-coder:33b"
   // or "openai:gpt-4o". Restored on launch.
   lastSelectedModel: string | null
@@ -97,6 +101,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   maxTokens: 2048,
 
   customModels: [],
+
+  favoriteModels: [],
 
   lastSelectedModel: null
 }

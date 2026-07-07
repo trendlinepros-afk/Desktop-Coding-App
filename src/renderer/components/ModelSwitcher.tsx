@@ -52,14 +52,25 @@ export function ModelSwitcher(): JSX.Element {
   const config = useStore((s) => s.config)
   const setBanner = useStore((s) => s.setBanner)
   const refreshOllama = useStore((s) => s.refreshOllama)
+  const toggleFavorite = useStore((s) => s.toggleFavorite)
 
   const [open, setOpen] = useState(false)
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const containerRef = useRef<HTMLDivElement>(null)
 
   const gpuVramGb = config?.gpuVramGb ?? 0
+  const favorites = config?.favoriteModels ?? []
+  const isFavorite = (id: string): boolean => favorites.includes(id)
   const selected = models.find((m) => m.id === selectedModelId) ?? null
   const selectedOllamaName = selected ? ollamaNameFromId(selected.id) : null
+
+  // Favorited models float to the top, preserving the underlying order within
+  // each group (stable sort).
+  const sortedModels = [...models].sort((a, b) => {
+    const fa = isFavorite(a.id) ? 0 : 1
+    const fb = isFavorite(b.id) ? 0 : 1
+    return fa - fb
+  })
 
   // Close the dropdown on any click outside the component.
   useEffect(() => {
@@ -146,55 +157,75 @@ export function ModelSwitcher(): JSX.Element {
           <div className="sticky top-0 border-b border-border bg-surface-raised px-3 py-2">
             <VramUsage />
           </div>
-          {models.length === 0 && (
+          {sortedModels.length === 0 && (
             <div className="px-3 py-2 text-sm text-content-muted">No models available</div>
           )}
-          {models.map((model) => {
+          {sortedModels.map((model) => {
             const isSelected = model.id === selectedModelId
+            const fav = isFavorite(model.id)
             return (
-              <button
-                type="button"
+              <div
                 key={model.id}
                 title={tooltipFor(model, gpuVramGb)}
-                disabled={!model.available}
-                onClick={() => handleSelect(model)}
-                className={`flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-sm ${
-                  model.available
-                    ? 'cursor-pointer text-content hover:bg-surface-muted'
-                    : 'cursor-not-allowed text-content-muted opacity-60'
-                } ${isSelected ? 'bg-accent/15' : ''}`}
+                className={`flex w-full items-start gap-2 px-3 py-2 text-sm ${
+                  isSelected ? 'bg-accent/15' : ''
+                } ${model.available ? 'hover:bg-surface-muted' : 'opacity-60'}`}
               >
-                <span className="flex min-w-0 flex-col leading-tight">
-                  <span className="flex items-center gap-1.5 font-medium">
-                    {model.name}
-                    {isSelected && <span className="text-accent">●</span>}
+                {/* Favorite toggle — floats the model to the top of the list. */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void toggleFavorite(model.id)
+                  }}
+                  title={fav ? 'Unfavorite' : 'Favorite (pin to top)'}
+                  className={`mt-0.5 shrink-0 text-base leading-none ${
+                    fav ? 'text-amber-400' : 'text-content-muted hover:text-amber-400'
+                  }`}
+                >
+                  {fav ? '★' : '☆'}
+                </button>
+                {/* Selectable region. */}
+                <button
+                  type="button"
+                  disabled={!model.available}
+                  onClick={() => handleSelect(model)}
+                  className={`flex min-w-0 flex-1 items-start justify-between gap-2 text-left ${
+                    model.available ? 'cursor-pointer text-content' : 'cursor-not-allowed text-content-muted'
+                  }`}
+                >
+                  <span className="flex min-w-0 flex-col leading-tight">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      {model.name}
+                      {isSelected && <span className="text-accent">●</span>}
+                    </span>
+                    <span className="text-xs text-content-muted">{model.providerLabel}</span>
+                    {model.description && (
+                      <span className="mt-0.5 text-xs text-content-muted">
+                        {model.description}
+                      </span>
+                    )}
+                    {!model.available && model.unavailableReason && (
+                      <span className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                        {model.unavailableReason}
+                      </span>
+                    )}
                   </span>
-                  <span className="text-xs text-content-muted">{model.providerLabel}</span>
-                  {model.description && (
-                    <span className="mt-0.5 text-xs text-content-muted">
-                      {model.description}
+                  {/* Inline VRAM badge — always visible, no hover needed. */}
+                  {vramLabel(model) && (
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
+                        model.available
+                          ? 'bg-surface-muted text-content-muted'
+                          : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                      }`}
+                      title="Estimated VRAM (from the model's size)"
+                    >
+                      {vramLabel(model)}
                     </span>
                   )}
-                  {!model.available && model.unavailableReason && (
-                    <span className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
-                      {model.unavailableReason}
-                    </span>
-                  )}
-                </span>
-                {/* Inline VRAM badge — always visible, no hover needed. */}
-                {vramLabel(model) && (
-                  <span
-                    className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
-                      model.available
-                        ? 'bg-surface-muted text-content-muted'
-                        : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                    }`}
-                    title="Estimated VRAM (from the model's size)"
-                  >
-                    {vramLabel(model)}
-                  </span>
-                )}
-              </button>
+                </button>
+              </div>
             )
           })}
         </div>
