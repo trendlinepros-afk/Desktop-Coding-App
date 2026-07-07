@@ -6,20 +6,21 @@ import {
   type ProviderId,
   type ThemeMode
 } from '@shared/config'
-import type { ProviderStatus, UpdateStatusEvent } from '@shared/types'
+import type { Prereq, ProviderStatus, UpdateStatusEvent } from '@shared/types'
 
 /**
  * Full application settings panel rendered as a modal overlay. Reads and writes
- * every field through the store's `updateConfig`. Organised into four sections
+ * every field through the store's `updateConfig`. Organised into sections
  * selectable from a left-hand nav.
  */
 
-type Section = 'general' | 'api' | 'ollama' | 'advanced'
+type Section = 'general' | 'api' | 'ollama' | 'prereqs' | 'advanced'
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'api', label: 'API Configuration' },
   { id: 'ollama', label: 'Ollama' },
+  { id: 'prereqs', label: 'Prerequisites' },
   { id: 'advanced', label: 'Advanced' }
 ]
 
@@ -72,11 +73,42 @@ export function SettingsModal(): JSX.Element | null {
   const checkForUpdates = useStore((s) => s.checkForUpdates)
   const installUpdate = useStore((s) => s.installUpdate)
 
+  const refreshModels = useStore((s) => s.refreshModels)
+
   const [section, setSection] = useState<Section>('general')
   const [configPath, setConfigPath] = useState('')
   const [testResults, setTestResults] = useState<Partial<Record<ProviderId, ProviderStatus>>>({})
   const [testing, setTesting] = useState<Partial<Record<ProviderId, boolean>>>({})
+  // Local draft of each provider's API key so the user edits then clicks Save
+  // (rather than persisting on every keystroke). Seeded from config on open.
+  const [keyDrafts, setKeyDrafts] = useState<Partial<Record<ProviderId, string>>>({})
+  const [savedFlash, setSavedFlash] = useState<Partial<Record<ProviderId, boolean>>>({})
+  const [prereqs, setPrereqs] = useState<Prereq[] | null>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
+
+  // Seed key drafts from config whenever the modal opens.
+  useEffect(() => {
+    if (!settingsOpen || !config) return
+    setKeyDrafts({
+      openai: config.api.openai.apiKey,
+      anthropic: config.api.anthropic.apiKey,
+      gemini: config.api.gemini.apiKey,
+      deepseek: config.api.deepseek.apiKey
+    })
+    // Only reseed on open, not on every config change.
+  }, [settingsOpen])
+
+  // Load prerequisite status when the modal opens.
+  useEffect(() => {
+    if (!settingsOpen) return
+    let alive = true
+    void window.api.checkPrereqs().then((p) => {
+      if (alive) setPrereqs(p)
+    })
+    return () => {
+      alive = false
+    }
+  }, [settingsOpen])
 
   // Fetch the config file path when the modal opens.
   useEffect(() => {
@@ -94,13 +126,33 @@ export function SettingsModal(): JSX.Element | null {
 
   const close = (): void => setSettingsOpen(false)
 
-  const setProvider = (p: ProviderId, patch: Partial<{ apiKey: string; model: string }>): void => {
+  // Auto-saved discrete choices (model select, enabled toggle).
+  const setProvider = (
+    p: ProviderId,
+    patch: Partial<{ apiKey: string; model: string; enabled: boolean }>
+  ): void => {
     void updateConfig({
       api: { ...config.api, [p]: { ...config.api[p], ...patch } }
     })
   }
 
+  // Persist the edited API key draft when the user clicks Save.
+  const saveKey = async (p: ProviderId): Promise<void> => {
+    const key = (keyDrafts[p] ?? '').trim()
+    await updateConfig({
+      api: { ...config.api, [p]: { ...config.api[p], apiKey: key } }
+    })
+    await refreshModels()
+    setSavedFlash((s) => ({ ...s, [p]: true }))
+    setTimeout(() => setSavedFlash((s) => ({ ...s, [p]: false })), 1800)
+  }
+
+  const keyDirty = (p: ProviderId): boolean =>
+    (keyDrafts[p] ?? '') !== config.api[p].apiKey
+
   const runTest = async (p: ProviderId): Promise<void> => {
+    // Persist any pending key edit first so the test uses what's on screen.
+    if (keyDirty(p)) await saveKey(p)
     setTesting((t) => ({ ...t, [p]: true }))
     try {
       const res = await window.api.testProvider(p)
@@ -200,6 +252,12 @@ export function SettingsModal(): JSX.Element | null {
                     }
                     className={inputCls}
                   />
+                  <p className="mt-1 text-xs text-content-muted">
+                    How much VRAM your GPU has. This is not a usage limit — the
+                    app doesn't cap anything. It's used only to compare against
+                    each local model's size so models that won't fit are flagged
+                    in the model switcher.
+                  </p>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-content">
@@ -305,26 +363,62 @@ export function SettingsModal(): JSX.Element | null {
 
                 {PROVIDERS.map((p) => {
                   const result = testResults[p]
+                  const enabled = config.api[p].enabled
                   return (
                     <div
                       key={p}
                       className="space-y-2 rounded border border-border bg-surface p-3"
                     >
-                      <div className="text-sm font-semibold text-content">
-                        {PROVIDER_LABELS[p]}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-content">
+                          {PROVIDER_LABELS[p]}
+                        </span>
+                        {/* Per-provider enable/disable toggle. */}
+                        <label
+                          className="flex cursor-pointer items-center gap-2 text-xs text-content-muted"
+                          title={
+                            enabled
+                              ? 'Enabled — models appear in the switcher'
+                              : 'Disabled — models hidden from the switcher'
+                          }
+                        >
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={(e) =>
+                              setProvider(p, { enabled: e.target.checked })
+                            }
+                          />
+                          {enabled ? 'Enabled' : 'Disabled'}
+                        </label>
                       </div>
-                      <div>
+                      <div className={enabled ? '' : 'opacity-50'}>
                         <label className={labelCls}>API key</label>
-                        <input
-                          type="password"
-                          value={config.api[p].apiKey}
-                          onChange={(e) => setProvider(p, { apiKey: e.target.value })}
-                          placeholder="sk-…"
-                          className={inputCls}
-                        />
-                      </div>
-                      <div>
-                        <label className={labelCls}>Model</label>
+                        <div className="mt-1 flex gap-2">
+                          <input
+                            type="password"
+                            value={keyDrafts[p] ?? ''}
+                            onChange={(e) =>
+                              setKeyDrafts((d) => ({ ...d, [p]: e.target.value }))
+                            }
+                            placeholder="Paste API key…"
+                            className={`${inputCls} mt-0 flex-1`}
+                          />
+                          <button
+                            type="button"
+                            disabled={!keyDirty(p)}
+                            onClick={() => void saveKey(p)}
+                            className="rounded bg-accent px-3 py-1.5 text-sm text-accent-fg hover:opacity-90 disabled:opacity-40"
+                          >
+                            {savedFlash[p] ? 'Saved ✓' : 'Save'}
+                          </button>
+                        </div>
+                        {keyDirty(p) && (
+                          <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                            Unsaved changes — click Save.
+                          </div>
+                        )}
+                        <label className={`${labelCls} mt-2`}>Model</label>
                         <select
                           value={config.api[p].model}
                           onChange={(e) => setProvider(p, { model: e.target.value })}
@@ -455,6 +549,70 @@ export function SettingsModal(): JSX.Element | null {
               </>
             )}
 
+            {section === 'prereqs' && (
+              <>
+                <p className="text-sm text-content-muted">
+                  These external tools aren't bundled with the app. It runs
+                  without them, but each unlocks specific features. This check
+                  also runs at install time and on launch (when something is
+                  missing).
+                </p>
+                {prereqs === null ? (
+                  <p className="text-sm text-content-muted">Checking…</p>
+                ) : (
+                  prereqs.map((pr) => (
+                    <div
+                      key={pr.id}
+                      className="flex items-start justify-between gap-3 rounded border border-border bg-surface p-3"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 text-sm font-semibold text-content">
+                          <span
+                            className={
+                              pr.installed
+                                ? 'text-green-600 dark:text-green-400'
+                                : 'text-red-600 dark:text-red-400'
+                            }
+                          >
+                            {pr.installed ? '✓' : '✗'}
+                          </span>
+                          {pr.name}
+                          <span
+                            className={`text-xs font-normal ${
+                              pr.installed
+                                ? 'text-green-600 dark:text-green-400'
+                                : 'text-content-muted'
+                            }`}
+                          >
+                            {pr.installed ? 'Installed' : 'Not found'}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-content-muted">{pr.impact}</p>
+                      </div>
+                      {!pr.installed && (
+                        <button
+                          type="button"
+                          className="shrink-0 rounded bg-accent px-3 py-1.5 text-sm text-accent-fg hover:opacity-90"
+                          onClick={() => void window.api.openExternal(pr.downloadUrl)}
+                        >
+                          Download
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+                <button
+                  type="button"
+                  className="rounded border border-border px-3 py-1.5 text-sm hover:bg-surface-muted"
+                  onClick={() =>
+                    void window.api.checkPrereqs().then((p) => setPrereqs(p))
+                  }
+                >
+                  Re-check
+                </button>
+              </>
+            )}
+
             {section === 'advanced' && (
               <>
                 <div>
@@ -472,6 +630,11 @@ export function SettingsModal(): JSX.Element | null {
                     }
                     className="mt-1 w-full"
                   />
+                  <p className="mt-1 text-xs text-content-muted">
+                    Controls randomness. Lower (~0.2) = focused, consistent, best
+                    for code. Higher (~0.8) = more creative and varied, but more
+                    likely to wander or make mistakes.
+                  </p>
                 </div>
 
                 <div>
@@ -486,6 +649,11 @@ export function SettingsModal(): JSX.Element | null {
                     }
                     className={inputCls}
                   />
+                  <p className="mt-1 text-xs text-content-muted">
+                    Maximum length of a single response (~1 token ≈ ¾ of a word,
+                    so 2048 ≈ 1,500 words). Raise it for generating large files;
+                    higher values are slower and cost more on paid APIs.
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-2">

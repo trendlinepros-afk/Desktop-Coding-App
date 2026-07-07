@@ -38,9 +38,10 @@ export async function listModels(): Promise<ModelDescriptor[]> {
     })
   }
 
-  // Cloud provider models.
+  // Cloud provider models. A disabled provider is hidden entirely.
   const providers = Object.keys(PROVIDER_MODELS) as ProviderId[]
   providers.forEach((provider) => {
+    if (!cfg.api[provider].enabled) return
     const key = cfg.api[provider].apiKey.trim()
     for (const model of PROVIDER_MODELS[provider]) {
       out.push({

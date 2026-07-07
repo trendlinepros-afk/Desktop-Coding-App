@@ -17,6 +17,12 @@ export interface ProviderConfig {
   apiKey: string
   /** The model id currently selected for this provider. */
   model: string
+  /**
+   * Whether this provider is enabled in the model switcher. Defaults to true.
+   * When false, the provider's models are hidden even if a key is present —
+   * lets the user keep a key configured but temporarily off.
+   */
+  enabled: boolean
 }
 
 export interface ApiConfig {
@@ -75,10 +81,10 @@ export const DEFAULT_CONFIG: AppConfig = {
   obsidianVaultPath: '',
 
   api: {
-    openai: { apiKey: '', model: 'gpt-4o' },
-    anthropic: { apiKey: '', model: 'claude-3-5-sonnet-latest' },
-    gemini: { apiKey: '', model: 'gemini-2.5-pro' },
-    deepseek: { apiKey: '', model: 'deepseek-chat' }
+    openai: { apiKey: '', model: 'gpt-4o', enabled: true },
+    anthropic: { apiKey: '', model: 'claude-3-5-sonnet-latest', enabled: true },
+    gemini: { apiKey: '', model: 'gemini-2.5-pro', enabled: true },
+    deepseek: { apiKey: '', model: 'deepseek-chat', enabled: true }
   },
 
   geminiAnalysisEnabled: false,
