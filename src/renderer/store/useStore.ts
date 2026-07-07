@@ -195,6 +195,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   sendMessage: async (text) => {
     if (!text.trim() || get().isStreaming) return
+    // Require an active project so generated files have a destination.
+    if (!get().project) {
+      get().setBanner({
+        kind: 'error',
+        text: 'Create or open a project before chatting.'
+      })
+      return
+    }
     const modelId = get().selectedModelId
     if (!modelId) {
       get().setBanner({ kind: 'error', text: 'No model selected.' })

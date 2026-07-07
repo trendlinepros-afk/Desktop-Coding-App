@@ -10,6 +10,11 @@ export function ChatPanel(): JSX.Element {
   const isStreaming = useStore((s) => s.isStreaming)
   const sendMessage = useStore((s) => s.sendMessage)
   const stopStreaming = useStore((s) => s.stopStreaming)
+  // Chatting requires an active project so generated files have a destination
+  // and the AI knows which folder it's working in.
+  const project = useStore((s) => s.project)
+  const createProject = useStore((s) => s.createProject)
+  const openProject = useStore((s) => s.openProject)
 
   const [text, setText] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -26,10 +31,20 @@ export function ChatPanel(): JSX.Element {
 
   const submit = (): void => {
     const trimmed = text.trim()
-    if (!trimmed || isStreaming) return
+    if (!trimmed || isStreaming || !project) return
     void sendMessage(trimmed)
     setText('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
+  }
+
+  const newProject = async (): Promise<void> => {
+    const name = window.prompt('Project name:')?.trim()
+    if (name) await createProject(name)
+  }
+
+  const openFolder = async (): Promise<void> => {
+    const dir = await window.api.pickFolder()
+    if (dir) await openProject(dir)
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -51,11 +66,34 @@ export function ChatPanel(): JSX.Element {
   return (
     <div className="flex h-full flex-col bg-surface">
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
-        {isEmpty ? (
+        {!project ? (
+          <div className="flex h-full flex-col items-center justify-center text-center text-content-muted">
+            <p className="text-sm font-medium text-content">No project open</p>
+            <p className="mt-1 max-w-xs text-xs">
+              Create or open a project first so the assistant knows which folder
+              to work in and where to write files.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90"
+                onClick={() => void newProject()}
+              >
+                New Project
+              </button>
+              <button
+                className="rounded-md border border-border px-4 py-2 text-sm text-content hover:bg-surface-muted"
+                onClick={() => void openFolder()}
+              >
+                Open Folder
+              </button>
+            </div>
+          </div>
+        ) : isEmpty ? (
           <div className="flex h-full flex-col items-center justify-center text-center text-content-muted">
             <p className="text-sm font-medium">Start a conversation</p>
             <p className="mt-1 text-xs">
-              Ask a question or describe what you want to build.
+              Ask a question or describe what you want to build in{' '}
+              <span className="font-medium text-content">{project.name}</span>.
             </p>
           </div>
         ) : (
@@ -70,6 +108,11 @@ export function ChatPanel(): JSX.Element {
       </div>
 
       <div className="border-t border-border bg-surface p-3">
+        {project && (
+          <div className="mb-1.5 px-1 text-xs text-content-muted">
+            Working in <span className="font-medium text-content">{project.name}</span>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <textarea
             ref={textareaRef}
@@ -77,8 +120,13 @@ export function ChatPanel(): JSX.Element {
             onChange={onInput}
             onKeyDown={onKeyDown}
             rows={1}
-            placeholder="Send a message… (Enter to send, Shift+Enter for newline)"
-            className="max-h-40 flex-1 resize-none rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-content placeholder:text-content-muted focus:outline-none focus:ring-1 focus:ring-accent"
+            disabled={!project}
+            placeholder={
+              project
+                ? 'Send a message… (Enter to send, Shift+Enter for newline)'
+                : 'Create or open a project to start chatting…'
+            }
+            className="max-h-40 flex-1 resize-none rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-content placeholder:text-content-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
           />
           {isStreaming ? (
             <button
@@ -91,7 +139,7 @@ export function ChatPanel(): JSX.Element {
             <button
               className="shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90 disabled:opacity-50"
               onClick={submit}
-              disabled={!text.trim()}
+              disabled={!text.trim() || !project}
             >
               Send
             </button>
