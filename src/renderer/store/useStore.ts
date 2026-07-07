@@ -11,7 +11,8 @@ import type {
   ModelDescriptor,
   OllamaStatus,
   PreviewStatus,
-  ProjectInfo
+  ProjectInfo,
+  UpdateStatusEvent
 } from '@shared/types'
 
 export type RightPanelMode = 'editor' | 'preview'
@@ -86,6 +87,13 @@ interface AppState {
   // Banner
   banner: { kind: 'error' | 'info'; text: string } | null
   setBanner: (b: AppState['banner']) => void
+
+  // Auto-update (surfaced app-wide, not just in Settings)
+  updateStatus: UpdateStatusEvent | null
+  setUpdateStatus: (e: UpdateStatusEvent) => void
+  checkForUpdates: () => void
+  installUpdate: () => void
+  dismissUpdate: () => void
 
   // ---- Stream event handlers (called by the App-level subscription) ----
   handleStreamToken: (token: string) => void
@@ -354,6 +362,18 @@ export const useStore = create<AppState>((set, get) => ({
   // ---- Banner ----
   banner: null,
   setBanner: (banner) => set({ banner }),
+
+  // ---- Auto-update ----
+  updateStatus: null,
+  setUpdateStatus: (updateStatus) => set({ updateStatus }),
+  checkForUpdates: () => {
+    // Optimistically reflect that a check is in flight; the main process will
+    // follow up with 'available' / 'not-available' / 'error' events.
+    set({ updateStatus: { state: 'checking' } })
+    void window.api.checkForUpdates()
+  },
+  installUpdate: () => void window.api.installUpdate(),
+  dismissUpdate: () => set({ updateStatus: null }),
 
   // ---- Stream event handlers ----
   handleStreamToken: (token) => {

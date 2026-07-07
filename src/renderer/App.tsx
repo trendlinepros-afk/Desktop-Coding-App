@@ -8,6 +8,7 @@ import { ConversationSidebar } from './components/ConversationSidebar'
 import { SettingsModal } from './components/SettingsModal'
 import { CostConfirmModal } from './components/CostConfirmModal'
 import { Banner } from './components/Banner'
+import { UpdateBanner } from './components/UpdateBanner'
 
 /**
  * Root layout: menu bar on top, a collapsible conversation sidebar on the left,
@@ -27,6 +28,7 @@ export default function App(): JSX.Element {
     handleStreamDone,
     handleStreamError,
     refreshFileTree,
+    setUpdateStatus,
     settingsOpen,
     pendingSend
   } = useStore()
@@ -49,6 +51,10 @@ export default function App(): JSX.Element {
       else if (e.type === 'error') handleStreamError(e.error)
     })
     const offFile = window.api.onFileChanged(() => void refreshFileTree())
+    // Surface auto-update events app-wide so the "Restart & Install" prompt
+    // appears even when the Settings modal is closed (the app auto-checks a
+    // few seconds after launch).
+    const offUpdate = window.api.onUpdateStatus((e) => setUpdateStatus(e))
     const mql = window.matchMedia('(prefers-color-scheme: dark)')
     const onScheme = (): void => applyTheme()
     mql.addEventListener('change', onScheme)
@@ -62,6 +68,7 @@ export default function App(): JSX.Element {
     return () => {
       offChat()
       offFile()
+      offUpdate()
       mql.removeEventListener('change', onScheme)
       clearInterval(interval)
     }
@@ -93,6 +100,7 @@ export default function App(): JSX.Element {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />
+      <UpdateBanner />
       <Banner />
       <div className="flex min-h-0 flex-1">
         {sidebarOpen && <ConversationSidebar />}

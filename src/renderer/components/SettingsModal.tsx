@@ -66,20 +66,17 @@ export function SettingsModal(): JSX.Element | null {
   const conversations = useStore((s) => s.conversations)
   const refreshConversations = useStore((s) => s.refreshConversations)
   const setBanner = useStore((s) => s.setBanner)
+  // Update status is owned by the store (subscribed app-wide in App.tsx) so the
+  // Settings view and the global UpdateBanner always agree.
+  const updateStatus = useStore((s) => s.updateStatus)
+  const checkForUpdates = useStore((s) => s.checkForUpdates)
+  const installUpdate = useStore((s) => s.installUpdate)
 
   const [section, setSection] = useState<Section>('general')
   const [configPath, setConfigPath] = useState('')
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatusEvent | null>(null)
   const [testResults, setTestResults] = useState<Partial<Record<ProviderId, ProviderStatus>>>({})
   const [testing, setTesting] = useState<Partial<Record<ProviderId, boolean>>>({})
   const overlayRef = useRef<HTMLDivElement>(null)
-
-  // Subscribe to update-status events for the lifetime of the modal.
-  useEffect(() => {
-    if (!settingsOpen) return
-    const unsub = window.api.onUpdateStatus((e) => setUpdateStatus(e))
-    return unsub
-  }, [settingsOpen])
 
   // Fetch the config file path when the modal opens.
   useEffect(() => {
@@ -220,7 +217,7 @@ export function SettingsModal(): JSX.Element | null {
                   <button
                     type="button"
                     className="rounded border border-border px-3 py-1.5 text-sm hover:bg-surface-muted"
-                    onClick={() => void window.api.checkForUpdates()}
+                    onClick={() => checkForUpdates()}
                   >
                     Check for Updates
                   </button>
@@ -233,7 +230,7 @@ export function SettingsModal(): JSX.Element | null {
                     <button
                       type="button"
                       className="rounded bg-accent px-3 py-1.5 text-sm text-accent-fg hover:opacity-90"
-                      onClick={() => void window.api.installUpdate()}
+                      onClick={() => installUpdate()}
                     >
                       Restart &amp; Install
                     </button>
