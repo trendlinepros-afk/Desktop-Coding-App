@@ -183,7 +183,10 @@ export function modeSystemPrompt(mode: ChatMode): string {
     'Rules: (1) ALWAYS put the path in title="..." on the opening fence — a code block with no path is NOT saved. ' +
     '(2) If the user asks for a single program/script, still choose a sensible filename (e.g. main.py, index.html, game.py). ' +
     '(3) Put shell/terminal commands (like `pip install pygame`) in a plain ```bash block or prose — never as a titled file. ' +
-    '(4) Output the entire file, not a snippet. (5) To delete a file, make the block body exactly DELETE.'
+    '(4) Output the entire file, not a snippet. (5) To delete a file, make the block body exactly DELETE. ' +
+    'RESPONSE STRUCTURE: begin with ONE or TWO sentences describing what you are about to do, then the ' +
+    'file/command blocks, then end with a brief "Done — what changed and suggested next steps" note. Keep ' +
+    'the prose short; the code is collapsible in the UI.'
   switch (mode) {
     case 'plan':
       return (

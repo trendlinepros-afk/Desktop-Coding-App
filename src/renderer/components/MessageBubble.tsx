@@ -7,11 +7,31 @@ interface MessageBubbleProps {
 
 type Segment =
   | { type: 'text'; content: string }
-  | { type: 'code'; content: string; language?: string }
+  | { type: 'code'; content: string; language?: string; filename?: string }
+
+/** Pull a file path out of a fence info string, if present. */
+function pathFromInfo(info: string): string | undefined {
+  const title = info.match(/title=["']([^"']+)["']/)
+  if (title) return title[1]
+  const fileEq = info.match(/(?:file|path)[:=]["']?([^\s"']+)/i)
+  if (fileEq) return fileEq[1]
+  for (const t of info.split(/\s+/)) {
+    if (/[./\\]/.test(t) && /\.\w+$/.test(t)) return t
+  }
+  return undefined
+}
+
+function langFromInfo(info: string): string | undefined {
+  const langToken = info.split(/\s+/)[0] ?? ''
+  return langToken.split(/[/\\]/).pop() || undefined
+}
 
 /**
  * Minimal markdown parse: split content on triple-backtick fenced code blocks.
  * Everything outside fences is treated as plain text (line breaks preserved).
+ * A trailing UNCLOSED fence (mid-stream, before the closing ``` arrives) is
+ * still rendered as a code segment so the collapsible block appears while the
+ * model is writing.
  */
 function parseSegments(content: string): Segment[] {
   const segments: Segment[] = []
@@ -24,19 +44,29 @@ function parseSegments(content: string): Segment[] {
       segments.push({ type: 'text', content: content.slice(lastIndex, match.index) })
     }
     const info = (match[1] ?? '').trim()
-    // language = first token of the info string, stripped of any path/title.
-    const langToken = info.split(/\s+/)[0] ?? ''
-    const language = langToken.split(/[/\\]/).pop() || undefined
     segments.push({
       type: 'code',
       content: match[2].replace(/\n$/, ''),
-      language
+      language: langFromInfo(info),
+      filename: pathFromInfo(info)
     })
     lastIndex = fence.lastIndex
   }
 
-  if (lastIndex < content.length) {
-    segments.push({ type: 'text', content: content.slice(lastIndex) })
+  const rest = content.slice(lastIndex)
+  const open = rest.match(/```([^\n`]*)\n?([\s\S]*)$/)
+  if (open) {
+    const before = rest.slice(0, open.index)
+    if (before.trim()) segments.push({ type: 'text', content: before })
+    const info = (open[1] ?? '').trim()
+    segments.push({
+      type: 'code',
+      content: (open[2] ?? '').replace(/\n$/, ''),
+      language: langFromInfo(info),
+      filename: pathFromInfo(info)
+    })
+  } else if (rest.length > 0) {
+    segments.push({ type: 'text', content: rest })
   }
 
   return segments
@@ -69,7 +99,12 @@ export function MessageBubble({ message }: MessageBubbleProps): JSX.Element {
         >
           {segments.map((seg, idx) =>
             seg.type === 'code' ? (
-              <CodeBlock key={idx} code={seg.content} language={seg.language} />
+              <CodeBlock
+                key={idx}
+                code={seg.content}
+                language={seg.language}
+                filename={seg.filename}
+              />
             ) : (
               seg.content.trim().length > 0 && (
                 <p key={idx} className="whitespace-pre-wrap break-words">

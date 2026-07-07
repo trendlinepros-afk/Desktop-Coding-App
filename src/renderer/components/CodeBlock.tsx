@@ -1,9 +1,14 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 
 interface CodeBlockProps {
   code: string
   language?: string
+  filename?: string
 }
+
+// Code blocks longer than this many lines start collapsed behind a dropdown,
+// so the chat reads as "intro → [▸ code] → summary" instead of a wall of code.
+const COLLAPSE_LINE_THRESHOLD = 6
 
 /** Keywords covering JS/TS, Python, Java, and HTML/CSS reasonably well. */
 const KEYWORDS = new Set([
@@ -138,11 +143,19 @@ function highlight(rawCode: string): string {
   }
 }
 
-/** Display-only, syntax-highlighted code block with a copy button. */
-export function CodeBlock({ code, language }: CodeBlockProps): JSX.Element {
+/**
+ * Display-only, syntax-highlighted code block. Multi-line blocks are collapsed
+ * behind a dropdown header by default (showing the filename + line count) so
+ * the surrounding explanation stays readable; click the header to expand.
+ */
+export function CodeBlock({ code, language, filename }: CodeBlockProps): JSX.Element {
   const [copied, setCopied] = useState(false)
+  const lineCount = code.split('\n').length
+  const collapsible = lineCount > COLLAPSE_LINE_THRESHOLD
+  const [expanded, setExpanded] = useState(!collapsible)
 
-  const onCopy = (): void => {
+  const onCopy = (e: MouseEvent): void => {
+    e.stopPropagation()
     void navigator.clipboard
       .writeText(code)
       .then(() => {
@@ -154,22 +167,36 @@ export function CodeBlock({ code, language }: CodeBlockProps): JSX.Element {
       })
   }
 
+  const label = filename || language || 'code'
+
   return (
     <div className="my-2 overflow-hidden rounded-md border border-border">
-      <div className="flex items-center justify-between border-b border-border bg-surface-muted px-3 py-1.5">
-        <span className="text-xs font-medium text-content-muted">
-          {language || 'text'}
+      <div
+        className={`flex items-center justify-between gap-2 border-b border-border bg-surface-muted px-3 py-1.5 ${
+          collapsible ? 'cursor-pointer select-none hover:bg-surface' : ''
+        }`}
+        onClick={collapsible ? () => setExpanded((v) => !v) : undefined}
+      >
+        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-content-muted">
+          {collapsible && <span className="text-content-muted">{expanded ? '▾' : '▸'}</span>}
+          <span className="truncate text-content">{label}</span>
+          <span className="shrink-0 text-content-muted">
+            · {lineCount} line{lineCount === 1 ? '' : 's'}
+            {collapsible && !expanded ? ' · click to view' : ''}
+          </span>
         </span>
         <button
-          className="text-xs text-content-muted hover:text-content"
+          className="shrink-0 text-xs text-content-muted hover:text-content"
           onClick={onCopy}
         >
           {copied ? 'Copied!' : 'Copy'}
         </button>
       </div>
-      <pre className="overflow-x-auto bg-surface-muted p-3 font-mono text-[13px] leading-relaxed">
-        <code dangerouslySetInnerHTML={{ __html: highlight(code) }} />
-      </pre>
+      {expanded && (
+        <pre className="overflow-x-auto bg-surface-muted p-3 font-mono text-[13px] leading-relaxed">
+          <code dangerouslySetInnerHTML={{ __html: highlight(code) }} />
+        </pre>
+      )}
     </div>
   )
 }
