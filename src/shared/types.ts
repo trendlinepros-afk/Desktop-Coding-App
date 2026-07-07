@@ -89,6 +89,10 @@ export interface OllamaStatus {
   endpoint: string
   error?: string
   models: OllamaModelInfo[]
+  /** Sum of VRAM (GB) currently occupied by loaded models (from /api/ps). */
+  vramInUseGb: number
+  /** Names of models currently loaded in memory. */
+  loadedModels: string[]
 }
 
 export interface ProviderStatus {

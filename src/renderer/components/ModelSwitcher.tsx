@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
+import { VramUsage } from './VramUsage'
 import type { ModelDescriptor } from '@shared/types'
 
 /**
@@ -50,6 +51,7 @@ export function ModelSwitcher(): JSX.Element {
   const selectModel = useStore((s) => s.selectModel)
   const config = useStore((s) => s.config)
   const setBanner = useStore((s) => s.setBanner)
+  const refreshOllama = useStore((s) => s.refreshOllama)
 
   const [open, setOpen] = useState(false)
   const [loadState, setLoadState] = useState<LoadState>('idle')
@@ -89,6 +91,8 @@ export function ModelSwitcher(): JSX.Element {
       const res = await window.api.loadOllamaModel(selectedOllamaName)
       if (res.ok) {
         setLoadState('loaded')
+        // Refresh so the VRAM-in-use meter reflects the newly loaded model.
+        await refreshOllama()
       } else {
         setLoadState('error')
         setBanner({ kind: 'error', text: `Failed to load model: ${res.error ?? 'unknown error'}` })
@@ -137,7 +141,11 @@ export function ModelSwitcher(): JSX.Element {
       )}
 
       {open && (
-        <div className="absolute left-0 top-full z-40 mt-1 max-h-80 w-80 overflow-y-auto rounded-md border border-border bg-surface-raised py-1 shadow-xl">
+        <div className="absolute left-0 top-full z-40 mt-1 max-h-96 w-80 overflow-y-auto rounded-md border border-border bg-surface-raised py-1 shadow-xl">
+          {/* Live VRAM budget so it's clear what will still fit. */}
+          <div className="sticky top-0 border-b border-border bg-surface-raised px-3 py-2">
+            <VramUsage />
+          </div>
           {models.length === 0 && (
             <div className="px-3 py-2 text-sm text-content-muted">No models available</div>
           )}

@@ -20,6 +20,7 @@ import { screenshotService } from './services/screenshot-service'
 import { geminiAnalyzer } from './services/gemini-analyzer'
 import { updaterService } from './services/updater'
 import { checkPrereqs } from './services/prereqs'
+import { detectVramGb } from './services/gpu'
 import { logger } from './services/logger'
 import type { ProviderId } from '../shared/config'
 
@@ -166,6 +167,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     return undefined
   })
   ipcMain.handle(IPC.prereqsCheck, () => checkPrereqs())
+  ipcMain.handle(IPC.gpuDetectVram, () => detectVramGb())
 
   // Forward file-watcher changes to the renderer.
   fileManager.setChangeListener((path) => {

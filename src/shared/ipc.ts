@@ -91,7 +91,8 @@ export const IPC = {
   logsExport: 'logs:export',
   appVersion: 'app:version',
   openExternal: 'app:open-external',
-  prereqsCheck: 'prereqs:check'
+  prereqsCheck: 'prereqs:check',
+  gpuDetectVram: 'gpu:detect-vram'
 } as const
 
 /** The API object exposed on `window.api` by the preload bridge. */
@@ -169,4 +170,6 @@ export interface AppApi {
   getAppVersion(): Promise<string>
   openExternal(url: string): Promise<void>
   checkPrereqs(): Promise<Prereq[]>
+  /** Auto-detect total GPU VRAM (GB); null if it can't be determined. */
+  detectGpuVram(): Promise<number | null>
 }

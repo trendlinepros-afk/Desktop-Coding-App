@@ -13,7 +13,7 @@ interface OllamaTagsResponse {
   models: { name: string; size: number }[]
 }
 interface OllamaPsResponse {
-  models: { name: string }[]
+  models: { name: string; size_vram?: number }[]
 }
 
 /**
@@ -45,13 +45,26 @@ export class OllamaService {
         sizeBytes: m.size,
         loaded: loadedNames.has(m.name)
       }))
-      return { connected: true, endpoint, models }
+      // Sum of VRAM actually occupied by loaded models (size_vram from /api/ps).
+      const vramInUseBytes = ps.data.models.reduce(
+        (sum, m) => sum + (m.size_vram ?? 0),
+        0
+      )
+      return {
+        connected: true,
+        endpoint,
+        models,
+        vramInUseGb: Math.round((vramInUseBytes / 1024 ** 3) * 10) / 10,
+        loadedModels: [...loadedNames]
+      }
     } catch (err) {
       return {
         connected: false,
         endpoint,
         error: errMessage(err),
-        models: []
+        models: [],
+        vramInUseGb: 0,
+        loadedModels: []
       }
     }
   }
@@ -83,7 +96,9 @@ export class OllamaService {
         connected: false,
         endpoint: this.endpoint,
         error: 'Ollama is not installed. Install it to use local models.',
-        models: []
+        models: [],
+        vramInUseGb: 0,
+        loadedModels: []
       }
     }
     try {
@@ -107,7 +122,9 @@ export class OllamaService {
         error:
           'Could not launch Ollama. Ensure it is installed and on PATH. ' +
           errMessage(err),
-        models: []
+        models: [],
+        vramInUseGb: 0,
+        loadedModels: []
       }
     }
     // Poll for readiness up to ~10s.

@@ -85,7 +85,8 @@ const api: AppApi = {
   exportLogs: () => ipcRenderer.invoke(IPC.logsExport),
   getAppVersion: () => ipcRenderer.invoke(IPC.appVersion),
   openExternal: (url) => ipcRenderer.invoke(IPC.openExternal, url),
-  checkPrereqs: () => ipcRenderer.invoke(IPC.prereqsCheck)
+  checkPrereqs: () => ipcRenderer.invoke(IPC.prereqsCheck),
+  detectGpuVram: () => ipcRenderer.invoke(IPC.gpuDetectVram)
 }
 
 if (process.contextIsolated) {

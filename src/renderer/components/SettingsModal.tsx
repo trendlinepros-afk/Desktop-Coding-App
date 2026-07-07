@@ -8,6 +8,7 @@ import {
   type ThemeMode
 } from '@shared/config'
 import type { Prereq, ProviderStatus, UpdateStatusEvent } from '@shared/types'
+import { VramUsage } from './VramUsage'
 
 /**
  * Full application settings panel rendered as a modal overlay. Reads and writes
@@ -85,6 +86,7 @@ export function SettingsModal(): JSX.Element | null {
   const [keyDrafts, setKeyDrafts] = useState<Partial<Record<ProviderId, string>>>({})
   const [savedFlash, setSavedFlash] = useState<Partial<Record<ProviderId, boolean>>>({})
   const [prereqs, setPrereqs] = useState<Prereq[] | null>(null)
+  const [detectingVram, setDetectingVram] = useState(false)
   // Per-model download progress for the catalog (keyed by model name).
   const [pullProgress, setPullProgress] = useState<
     Record<string, { status: string; percent: number }>
@@ -207,6 +209,24 @@ export function SettingsModal(): JSX.Element | null {
     if (dir) void updateConfig({ [key]: dir } as Record<typeof key, string>)
   }
 
+  const detectVram = async (): Promise<void> => {
+    setDetectingVram(true)
+    try {
+      const gb = await window.api.detectGpuVram()
+      if (gb && gb > 0) {
+        await updateConfig({ gpuVramGb: gb })
+        setBanner({ kind: 'info', text: `Detected ${gb} GB of GPU VRAM.` })
+      } else {
+        setBanner({
+          kind: 'error',
+          text: 'Could not auto-detect VRAM. Please enter it manually.'
+        })
+      }
+    } finally {
+      setDetectingVram(false)
+    }
+  }
+
   const clearHistory = async (): Promise<void> => {
     if (!window.confirm(`Delete all ${conversations.length} conversation(s)? This cannot be undone.`))
       return
@@ -277,16 +297,27 @@ export function SettingsModal(): JSX.Element | null {
               <>
                 <div>
                   <label className={labelCls}>GPU VRAM (GB)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={config.gpuVramGb}
-                    onChange={(e) =>
-                      void updateConfig({ gpuVramGb: Number(e.target.value) || 0 })
-                    }
-                    className={inputCls}
-                  />
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={config.gpuVramGb}
+                      onChange={(e) =>
+                        void updateConfig({ gpuVramGb: Number(e.target.value) || 0 })
+                      }
+                      className={`${inputCls} mt-0 flex-1`}
+                    />
+                    <button
+                      type="button"
+                      disabled={detectingVram}
+                      onClick={() => void detectVram()}
+                      className="shrink-0 rounded border border-border px-3 py-1.5 text-sm hover:bg-surface-muted disabled:opacity-50"
+                      title="Auto-detect from your GPU (nvidia-smi or Windows)"
+                    >
+                      {detectingVram ? 'Detecting…' : 'Detect'}
+                    </button>
+                  </div>
                   <p className="mt-1 text-xs text-content-muted">
                     How much VRAM your GPU has. This is not a usage limit — the
                     app doesn't cap anything. It's used only to compare against
@@ -581,6 +612,8 @@ export function SettingsModal(): JSX.Element | null {
                   . After installing a model, use the "Load Model" button next to the
                   model switcher to load it into memory.
                 </p>
+
+                <VramUsage className="rounded border border-border bg-surface p-3" />
 
                 <div className="border-t border-border pt-3">
                   <div className="text-sm font-semibold text-content">
