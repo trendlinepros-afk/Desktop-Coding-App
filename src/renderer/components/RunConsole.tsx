@@ -14,8 +14,11 @@ export function RunConsole(): JSX.Element {
   const startRun = useStore((s) => s.startRun)
   const stopRun = useStore((s) => s.stopRun)
   const clearRunLogs = useStore((s) => s.clearRunLogs)
+  const config = useStore((s) => s.config)
+  const updateConfig = useStore((s) => s.updateConfig)
 
   const running = runStatus?.running ?? false
+  const autoDebug = config?.autoDebugRunErrors ?? true
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll the console as new lines arrive.
@@ -56,9 +59,20 @@ export function RunConsole(): JSX.Element {
         >
           Clear
         </button>
-        <span className="ml-auto text-xs text-content-muted">
+        <label
+          className="ml-auto flex items-center gap-1.5 text-xs text-content-muted"
+          title="When a run fails, send its output to the chat so the AI can fix it"
+        >
+          <input
+            type="checkbox"
+            checked={autoDebug}
+            onChange={(e) => void updateConfig({ autoDebugRunErrors: e.target.checked })}
+          />
+          Auto-fix errors in chat
+        </label>
+        <span className="text-xs text-content-muted">
           {running
-            ? `Running: ${runStatus?.command ?? ''}`
+            ? `Running…`
             : runStatus?.exitCode != null
               ? `Exited (code ${runStatus.exitCode})`
               : 'Idle'}

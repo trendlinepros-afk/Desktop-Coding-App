@@ -83,6 +83,7 @@ export const IPC = {
   runStart: 'run:start',
   runStop: 'run:stop',
   runStatus: 'run:status',
+  runCommand: 'run:command',
   runLog: 'run:log', // main -> renderer event
   runExit: 'run:exit', // main -> renderer event
 
@@ -168,6 +169,7 @@ export interface AppApi {
   startRun(): Promise<RunStatus>
   stopRun(): Promise<void>
   getRunStatus(): Promise<RunStatus>
+  runCommand(command: string): Promise<number | null>
   onRunLog(cb: (line: string) => void): () => void
   onRunExit(cb: (code: number | null) => void): () => void
 

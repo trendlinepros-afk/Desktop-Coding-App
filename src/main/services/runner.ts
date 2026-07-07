@@ -14,6 +14,7 @@ import type { RunStatus } from '../../shared/types'
  */
 export class RunnerService {
   private proc: ChildProcess | null = null
+  private cmdProc: ChildProcess | null = null
   private status: RunStatus = { running: false, command: null, exitCode: null }
   private onLog: ((line: string) => void) | null = null
   private onExit: ((code: number | null) => void) | null = null
@@ -79,15 +80,57 @@ export class RunnerService {
     return this.status
   }
 
-  stop(): void {
-    if (this.proc) {
-      try {
-        this.proc.kill()
-      } catch (err) {
-        logger.warn('Failed to kill run process', err)
-      }
-      this.proc = null
+  /**
+   * Run an arbitrary shell command in the project directory (e.g.
+   * `pip install pygame`, `npm install`), streaming output to the console.
+   * Used by Full Auto / approved edits so the app can install dependencies and
+   * run build steps itself instead of telling the user to. Resolves the exit
+   * code. A small denylist blocks obviously destructive commands.
+   */
+  runCommand(command: string): Promise<number | null> {
+    const root = fileManager.getActiveRoot()
+    if (!root) {
+      this.emit('No active project — cannot run command.')
+      return Promise.resolve(null)
     }
+    if (isDangerous(command)) {
+      this.emit(`⚠ Skipped potentially destructive command: ${command}`)
+      return Promise.resolve(null)
+    }
+    this.emit(`▶ $ ${command}`)
+    return new Promise((resolve) => {
+      const proc = spawn(command, {
+        cwd: root,
+        shell: true,
+        windowsHide: false,
+        env: { ...process.env, PYTHONUNBUFFERED: '1' }
+      })
+      this.cmdProc = proc
+      proc.stdout?.on('data', (d: Buffer) => this.emitChunk(d))
+      proc.stderr?.on('data', (d: Buffer) => this.emitChunk(d))
+      proc.on('error', (err) =>
+        this.emit(`⚠ ${err.message}. Is the required tool installed and on PATH?`)
+      )
+      proc.on('exit', (code) => {
+        this.emit(`■ Command exited with code ${code ?? 0}`)
+        if (this.cmdProc === proc) this.cmdProc = null
+        resolve(code)
+      })
+    })
+  }
+
+  stop(): void {
+    for (const p of [this.proc, this.cmdProc]) {
+      if (p) {
+        try {
+          p.kill()
+        } catch (err) {
+          logger.warn('Failed to kill process', err)
+        }
+      }
+    }
+    this.proc = null
+    this.cmdProc = null
     if (this.status.running) {
       this.setStatus({ ...this.status, running: false })
     }
@@ -107,6 +150,13 @@ export class RunnerService {
     this.status = s
     return s
   }
+}
+
+/** Block clearly destructive commands from auto-execution. */
+function isDangerous(command: string): boolean {
+  return /(\brm\s+-[rf]|\brmdir\s+\/s|\bdel\s+\/|format\s+[a-z]:|mkfs|shutdown|reboot|:\(\)\s*\{|\bdd\s+if=|>\s*\/dev\/sd)/i.test(
+    command
+  )
 }
 
 function detectRunCommand(root: string): { cmd: string; args: string[] } | null {

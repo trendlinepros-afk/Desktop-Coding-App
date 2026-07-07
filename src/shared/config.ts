@@ -76,6 +76,12 @@ export interface AppConfig {
   // How file edits are handled (plan / ask / auto).
   chatMode: ChatMode
 
+  // Recently opened project folders (absolute paths, most-recent first).
+  recentProjects: string[]
+
+  // Auto-send a failed run's output to the chat so the AI can diagnose it.
+  autoDebugRunErrors: boolean
+
   // Custom Ollama model VRAM entries (merged with hardcoded MODEL_VRAM)
   customModels: CustomOllamaModel[]
 
@@ -114,6 +120,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   maxTokens: 2048,
 
   chatMode: 'ask',
+
+  recentProjects: [],
+  autoDebugRunErrors: true,
 
   customModels: [],
 
@@ -186,14 +195,20 @@ export function modeSystemPrompt(mode: ChatMode): string {
       )
     case 'ask':
       return (
-        'You are in ASK MODE. You may propose file changes, but they will NOT be applied until the ' +
-        'user approves them. Briefly explain what you will change, then provide the changes. ' +
-        fileFormat
+        'You are in ASK MODE. You may propose file changes and shell commands, but they are NOT ' +
+        'applied until the user approves. Briefly explain what you will do, then provide it. ' +
+        fileFormat +
+        ' RUNNING COMMANDS: to install a dependency or run something, put the command in a ```bash ' +
+        'block (e.g. `pip install pygame`) — it will be executed in the project directory after ' +
+        'approval. Do NOT just tell the user to run it themselves.'
       )
     case 'auto':
       return (
-        'You are in FULL AUTO mode. Implement the request directly. Your file changes are written to ' +
-        'disk automatically. ' +
+        'You are in FULL AUTO mode. Implement the request directly with NO further questions. Your ' +
+        'file changes are written to disk automatically, and any shell command you put in a ```bash ' +
+        'block is EXECUTED automatically in the project directory (e.g. `pip install pygame`, ' +
+        '`npm install`). Use this to install dependencies and run build steps yourself — NEVER just ' +
+        'tell the user to run a command, emit it in a ```bash block instead. ' +
         fileFormat
       )
   }

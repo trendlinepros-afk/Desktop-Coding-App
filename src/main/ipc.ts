@@ -138,6 +138,9 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IPC.runStart, () => runnerService.start())
   ipcMain.handle(IPC.runStop, () => runnerService.stop())
   ipcMain.handle(IPC.runStatus, () => runnerService.getStatus())
+  ipcMain.handle(IPC.runCommand, (_e, command: string) =>
+    runnerService.runCommand(command)
+  )
 
   // ---- Screenshot + Gemini ----
   ipcMain.handle(IPC.screenshotCapture, () => screenshotService.capture())

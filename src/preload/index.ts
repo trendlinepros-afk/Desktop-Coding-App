@@ -75,6 +75,7 @@ const api: AppApi = {
   startRun: () => ipcRenderer.invoke(IPC.runStart),
   stopRun: () => ipcRenderer.invoke(IPC.runStop),
   getRunStatus: () => ipcRenderer.invoke(IPC.runStatus),
+  runCommand: (command) => ipcRenderer.invoke(IPC.runCommand, command),
   onRunLog: (cb) => subscribe<string>(IPC.runLog, cb),
   onRunExit: (cb) => subscribe<number | null>(IPC.runExit, cb),
 

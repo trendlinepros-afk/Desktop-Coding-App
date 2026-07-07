@@ -113,6 +113,7 @@ function mergeConfig(base: AppConfig, patch: Partial<AppConfig>): AppConfig {
   }
   if (patch.customModels) out.customModels = patch.customModels
   if (patch.favoriteModels) out.favoriteModels = patch.favoriteModels
+  if (patch.recentProjects) out.recentProjects = patch.recentProjects
   // Config version is owned by the app, never downgraded by a stored value.
   out.configVersion = Math.max(base.configVersion, patch.configVersion ?? 0)
   return out

@@ -28,6 +28,7 @@ export function ChatPanel(): JSX.Element {
   const applyPendingEdits = useStore((s) => s.applyPendingEdits)
   const rejectPendingEdits = useStore((s) => s.rejectPendingEdits)
   const chatMode = config?.chatMode ?? 'ask'
+  const recentProjects = config?.recentProjects ?? []
 
   const [text, setText] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -77,7 +78,7 @@ export function ChatPanel(): JSX.Element {
     <div className="flex h-full flex-col bg-surface">
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
         {!project ? (
-          <div className="flex h-full flex-col items-center justify-center text-center text-content-muted">
+          <div className="flex h-full flex-col items-center justify-center px-6 text-center text-content-muted">
             <p className="text-sm font-medium text-content">No project open</p>
             <p className="mt-1 max-w-xs text-xs">
               Create or open a project first so the assistant knows which folder
@@ -97,6 +98,28 @@ export function ChatPanel(): JSX.Element {
                 Open Folder
               </button>
             </div>
+            {recentProjects.length > 0 && (
+              <div className="mt-6 w-full max-w-sm text-left">
+                <div className="mb-1 px-1 text-xs font-medium uppercase tracking-wide text-content-muted">
+                  Recent projects
+                </div>
+                <div className="overflow-hidden rounded-md border border-border">
+                  {recentProjects.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => void openProject(p)}
+                      title={p}
+                      className="flex w-full flex-col border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-surface-muted"
+                    >
+                      <span className="truncate text-sm text-content">
+                        {p.split(/[\\/]/).pop() || p}
+                      </span>
+                      <span className="truncate text-[11px] text-content-muted">{p}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : isEmpty ? (
           <div className="flex h-full flex-col items-center justify-center text-center text-content-muted">
@@ -121,13 +144,21 @@ export function ChatPanel(): JSX.Element {
       {pendingEdits && (
         <div className="border-t border-amber-500/40 bg-amber-500/10 px-3 py-2">
           <div className="mb-1 text-xs font-medium text-amber-700 dark:text-amber-300">
-            The assistant proposed {pendingEdits.files.length} file change(s) — review and apply:
+            The assistant proposed {pendingEdits.files.length} file change(s)
+            {pendingEdits.commands.length > 0 &&
+              ` and ${pendingEdits.commands.length} command(s)`}{' '}
+            — review and apply:
           </div>
           <ul className="mb-2 max-h-24 space-y-0.5 overflow-y-auto text-xs text-content-muted">
             {pendingEdits.files.map((f, i) => (
-              <li key={i} className="flex justify-between gap-2">
+              <li key={`f-${i}`} className="flex justify-between gap-2">
                 <span className="truncate font-mono">{f.path}</span>
                 <span className="shrink-0 uppercase">{f.action}</span>
+              </li>
+            ))}
+            {pendingEdits.commands.map((c, i) => (
+              <li key={`c-${i}`} className="truncate font-mono text-amber-700 dark:text-amber-300">
+                $ {c}
               </li>
             ))}
           </ul>

@@ -62,10 +62,15 @@ interface AppState {
   cancelPendingSend: () => void
   stopStreaming: () => void
 
-  // Pending file edits awaiting approval (ask mode)
-  pendingEdits: { raw: string; files: { path: string; action: string }[] } | null
+  // Pending file edits / commands awaiting approval (ask mode)
+  pendingEdits: {
+    raw: string
+    files: { path: string; action: string }[]
+    commands: string[]
+  } | null
   applyPendingEdits: () => Promise<void>
   rejectPendingEdits: () => void
+  runShellCommands: (commands: string[]) => Promise<void>
 
   // Project / files
   project: ProjectInfo | null
@@ -74,6 +79,7 @@ interface AppState {
   openFileContent: string
   createProject: (name: string) => Promise<void>
   openProject: (rootPath: string) => Promise<void>
+  _trackRecentProject: (rootPath: string) => Promise<void>
   refreshFileTree: () => Promise<void>
   openFile: (relPath: string) => Promise<void>
   saveOpenFile: (content: string) => Promise<void>
@@ -134,6 +140,34 @@ interface AppState {
 
 function uid(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+}
+
+const SHELL_LANGS = new Set([
+  'bash', 'sh', 'shell', 'zsh', 'console', 'shell-session', 'powershell',
+  'ps1', 'cmd', 'bat', 'terminal'
+])
+
+/**
+ * Extract runnable shell commands from an assistant response's ```bash-style
+ * blocks — one command per non-empty, non-comment line, with leading prompt
+ * markers (`$ `, `> `, `PS> `) stripped. This is what lets Full Auto actually
+ * run `pip install ...` etc. instead of just showing it.
+ */
+function extractShellCommands(raw: string): string[] {
+  const fenceRe = /```([^\n]*)\n([\s\S]*?)```/g
+  const commands: string[] = []
+  let m: RegExpExecArray | null
+  while ((m = fenceRe.exec(raw)) !== null) {
+    const lang = (m[1].trim().split(/\s+/)[0] ?? '').toLowerCase()
+    if (!SHELL_LANGS.has(lang)) continue
+    for (const rawLine of m[2].split('\n')) {
+      const line = rawLine.replace(/^\s*(?:\$|>|PS[^>]*>|#\s*!)\s?/, '').trim()
+      if (!line || line.startsWith('#')) continue
+      commands.push(line)
+    }
+  }
+  // De-dupe consecutive duplicates, cap to keep runs bounded.
+  return commands.filter((c, i) => c !== commands[i - 1]).slice(0, 12)
 }
 
 function newBlankConversation(model: string): Conversation {
@@ -235,10 +269,13 @@ export const useStore = create<AppState>((set, get) => ({
     set({ pendingEdits: null })
     try {
       const changes = await window.api.applyFileBlocks(pe.raw)
-      await get().refreshFileTree()
-      get()._appendSystemMessage(
-        `✓ Applied ${changes.length} file change(s): ${changes.map((c) => c.path).join(', ')}`
-      )
+      if (changes.length) {
+        await get().refreshFileTree()
+        get()._appendSystemMessage(
+          `✓ Applied ${changes.length} file change(s): ${changes.map((c) => c.path).join(', ')}`
+        )
+      }
+      if (pe.commands.length) await get().runShellCommands(pe.commands)
       await get()._persistCurrent()
     } catch (err) {
       get().setBanner({ kind: 'error', text: `Apply failed: ${(err as Error).message}` })
@@ -249,6 +286,18 @@ export const useStore = create<AppState>((set, get) => ({
     set({ pendingEdits: null })
     get()._appendSystemMessage('✗ Changes rejected — nothing was written.')
     void get()._persistCurrent()
+  },
+  runShellCommands: async (commands) => {
+    if (!commands.length) return
+    // Show the console so the user sees the commands run live.
+    set({ rightPanelMode: 'run', runLogs: [] })
+    get()._appendSystemMessage(
+      `Auto-running ${commands.length} command(s): ${commands.join(' && ')}`
+    )
+    for (const c of commands) {
+      await window.api.runCommand(c)
+    }
+    await get().refreshFileTree()
   },
 
   sendMessage: async (text) => {
@@ -305,6 +354,7 @@ export const useStore = create<AppState>((set, get) => ({
   createProject: async (name) => {
     const project = await window.api.createProject(name)
     set({ project })
+    await get()._trackRecentProject(project.rootPath)
     await get().refreshFileTree()
     const current = get().current
     if (current) set({ current: { ...current, projectName: project.name } })
@@ -312,7 +362,13 @@ export const useStore = create<AppState>((set, get) => ({
   openProject: async (rootPath) => {
     const project = await window.api.openProject(rootPath)
     set({ project })
+    await get()._trackRecentProject(project.rootPath)
     await get().refreshFileTree()
+  },
+  _trackRecentProject: async (rootPath) => {
+    const existing = get().config?.recentProjects ?? []
+    const recent = [rootPath, ...existing.filter((p) => p !== rootPath)].slice(0, 8)
+    await get().updateConfig({ recentProjects: recent })
   },
   refreshFileTree: async () => {
     if (!get().project) return
@@ -383,6 +439,24 @@ export const useStore = create<AppState>((set, get) => ({
   handleRunExit: (code) => {
     const rs = get().runStatus
     set({ runStatus: rs ? { ...rs, running: false, exitCode: code } : null })
+    // Auto-report a failed run to the chat so the AI can diagnose/fix it.
+    if (
+      code !== 0 &&
+      code !== null &&
+      get().config?.autoDebugRunErrors &&
+      !get().isStreaming &&
+      get().project &&
+      get().selectedModelId
+    ) {
+      const logs = get().runLogs.slice(-60).join('\n')
+      const command = rs?.command ?? 'the project'
+      const message =
+        `I ran the project (\`${command}\`) and it failed with exit code ${code}. ` +
+        `Here is the output:\n\n\`\`\`\n${logs}\n\`\`\`\n\n` +
+        `Diagnose the failure and fix it — update the code if the bug is in it, ` +
+        `or tell me exactly what to install/run if it's a missing dependency.`
+      void get().sendMessage(message)
+    }
   },
 
   // ---- Gemini analysis ----
@@ -490,8 +564,9 @@ export const useStore = create<AppState>((set, get) => ({
     const mode = get().config?.chatMode ?? 'ask'
     // Handle the assistant's file blocks according to the active mode.
     if (last?.role === 'assistant' && last.content && get().project) {
+      const commands = extractShellCommands(last.content)
       if (mode === 'auto') {
-        // Full auto: write immediately.
+        // Full auto: write files, then run any shell commands (installs, etc.).
         try {
           const changes = await window.api.applyFileBlocks(last.content)
           if (changes.length) {
@@ -503,11 +578,14 @@ export const useStore = create<AppState>((set, get) => ({
         } catch {
           // non-fatal
         }
+        if (commands.length) await get().runShellCommands(commands)
       } else if (mode === 'ask') {
-        // Ask: preview the changes and wait for approval before writing.
+        // Ask: preview the changes/commands and wait for approval.
         try {
           const files = await window.api.previewFileBlocks(last.content)
-          if (files.length) set({ pendingEdits: { raw: last.content, files } })
+          if (files.length || commands.length) {
+            set({ pendingEdits: { raw: last.content, files, commands } })
+          }
         } catch {
           // non-fatal
         }

@@ -12,7 +12,9 @@ export function RightPanel(): JSX.Element {
   const rightPanelMode = useStore((s) => s.rightPanelMode)
   const setRightPanelMode = useStore((s) => s.setRightPanelMode)
   const startRun = useStore((s) => s.startRun)
+  const stopRun = useStore((s) => s.stopRun)
   const runStatus = useStore((s) => s.runStatus)
+  const running = runStatus?.running ?? false
 
   const segClass = (mode: RightPanelMode): string =>
     `px-3 py-1 text-sm rounded transition-colors ${
@@ -35,14 +37,24 @@ export function RightPanel(): JSX.Element {
             Run
           </button>
         </div>
-        {/* Quick Play — runs the project (opens the Run console) from anywhere. */}
-        <button
-          className="rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
-          onClick={() => void startRun()}
-          title="Run this project (python / node / npm start) and show logs"
-        >
-          {runStatus?.running ? '▶ Running…' : '▶ Play'}
-        </button>
+        {/* Quick Play / Stop — runs the project (opens the Run console). */}
+        {running ? (
+          <button
+            className="rounded bg-red-500 px-3 py-1 text-sm font-medium text-white hover:bg-red-600"
+            onClick={() => void stopRun()}
+            title="Stop the running project"
+          >
+            ■ Stop
+          </button>
+        ) : (
+          <button
+            className="rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
+            onClick={() => void startRun()}
+            title="Run this project (python / node / npm start) and show logs"
+          >
+            ▶ Play
+          </button>
+        )}
       </div>
       <div className="min-h-0 flex-1">
         {rightPanelMode === 'editor' && <CodeEditor />}
